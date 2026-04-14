@@ -30,6 +30,22 @@
   .status code{background:#fff;padding:1px 5px;border:1px solid var(--line);font-size:11px}
 
   .snaps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  /* reproducción de timeline */
+  .playback{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:8px 12px;background:#fafaf7;border:1px solid var(--line);flex-wrap:wrap}
+  .pb-btn{font-family:inherit;font-size:14px;line-height:1;padding:4px 10px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);cursor:pointer;min-width:36px}
+  .pb-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .pb-btn.playing{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .pb-btn.pb-small{font-size:11px;min-width:28px;padding:4px 6px}
+  .pb-slider-wrap{flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px}
+  #pbSlider{width:100%;height:4px;cursor:pointer;accent-color:var(--accent)}
+  .pb-label{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .pb-mode label{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none}
+  .pb-mode input{margin:0}
+  .pb-speed{display:flex;align-items:center;gap:4px}
+  .pb-speed .pb-lbl{font-size:10px;color:var(--muted);margin-right:3px}
+  .pb-sp{font-size:10px;padding:3px 7px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;color:var(--muted)}
+  .pb-sp:hover{color:var(--fg)}
+  .pb-sp.act{background:var(--fg);color:#fff;border-color:var(--fg)}
   .snap{font-size:11px;padding:4px 9px;border:1px solid var(--line);background:#fff;display:flex;gap:8px;align-items:center}
   .snap b{color:var(--accent)}
   .snap .av{color:var(--muted);font-size:10px}
@@ -280,6 +296,28 @@
   <div id="app" style="display:none">
     <div class="snaps" id="snaps"></div>
 
+    <div class="playback" id="playback">
+      <button id="playBtn" title="reproducir evolución del conteo" class="pb-btn">▶</button>
+      <button id="stepBackBtn" title="snapshot anterior" class="pb-btn pb-small">⏮</button>
+      <button id="stepFwdBtn" title="snapshot siguiente" class="pb-btn pb-small">⏭</button>
+      <div class="pb-slider-wrap">
+        <input type="range" id="pbSlider" min="0" max="0" step="1" value="0"/>
+        <div class="pb-label" id="pbLabel">listo</div>
+      </div>
+      <div class="pb-mode">
+        <label title="acumulativo: cada tick añade el siguiente snapshot · solo-uno: muestra el snapshot actual sin los previos">
+          <input type="checkbox" id="pbCumulative" checked>
+          acumulativo
+        </label>
+      </div>
+      <div class="pb-speed">
+        <span class="pb-lbl">velocidad</span>
+        <button data-speed="2000" class="pb-sp">lento</button>
+        <button data-speed="1000" class="pb-sp act">normal</button>
+        <button data-speed="400" class="pb-sp">rápido</button>
+      </div>
+    </div>
+
     <div class="movements" id="movements" style="display:none">
       <h2>movimientos <span class="meta" id="movMeta">—</span></h2>
       <ul id="movList"></ul>
@@ -493,8 +531,14 @@
     duelos: [],
     showCastillo: false,  // línea baseline 2021
     csSort: { col: 'default', dir: 'desc' },  // ordenamiento tabla castillo-sanchez
-    mapMode: 'winner',  // modo de colorear mapa: winner | avance | margin | part | candidato
-    mapCand: null       // código de candidatx cuando mapMode === 'candidato'
+    mapMode: 'winner',
+    mapCand: null,
+    // playback (no persistente, se resetea cada carga)
+    pbPlaying: false,
+    pbIdx: 0,          // índice del snapshot actual en modo reproducción
+    pbSpeed: 1000,     // ms entre ticks
+    pbCumulative: true, // acumular snapshots o solo mostrar el actual
+    pbSavedInactive: null,  // backup de snapsInactive para restaurar al parar
   };
 
   // ---------- persistencia ----------
@@ -717,6 +761,11 @@
       return `<div class="snap ${isLatest&&!inactive?'latest':''} ${inactive?'inactive':''}" data-ts="${s.ts}" title="${s.ts} · click: ${inactive?'activar':'quitar del gráfico'}">s${i} · <b>${s.label}</b> <span class="av">${pct(s.avance)}</span></div>`;
     }).join('') + `<div class="snap" id="snapsAll" style="color:var(--muted);cursor:pointer" title="mostrar todos">mostrar todos</div>`;
     el.querySelectorAll('.snap[data-ts]').forEach(p => p.onclick = () => {
+      // click manual durante reproducción → parar y olvidar estado guardado
+      if(state.pbPlaying || state.pbSavedInactive !== null){
+        pbStop();
+        state.pbSavedInactive = null;
+      }
       const ts = p.dataset.ts;
       const activeN = DB.snapshots.length - state.snapsInactive.size;
       if(state.snapsInactive.has(ts)){
@@ -728,6 +777,10 @@
       persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
     });
     document.getElementById('snapsAll').onclick = () => {
+      if(state.pbPlaying || state.pbSavedInactive !== null){
+        pbStop();
+        state.pbSavedInactive = null;
+      }
       state.snapsInactive.clear();
       persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
     };
@@ -2305,6 +2358,152 @@
     });
   }
 
+  // ========= PLAYBACK TIMELINE =========
+  let pbTimer = null;
+  function pbApplyFrame(idx){
+    // idx: snapshot a mostrar (0..n-1)
+    state.pbIdx = idx;
+    const all = DB.snapshots;
+    if(state.pbCumulative){
+      // activar snapshots 0..idx, desactivar idx+1..n-1
+      state.snapsInactive.clear();
+      for(let i = idx+1; i < all.length; i++){
+        state.snapsInactive.add(all[i].ts);
+      }
+    } else {
+      // solo activar el snapshot idx
+      state.snapsInactive.clear();
+      for(let i = 0; i < all.length; i++){
+        if(i !== idx) state.snapsInactive.add(all[i].ts);
+      }
+    }
+    // actualizar UI
+    const slider = document.getElementById('pbSlider');
+    if(slider) slider.value = idx;
+    const lbl = document.getElementById('pbLabel');
+    if(lbl){
+      const s = all[idx];
+      lbl.textContent = `s${idx}/${all.length-1} · ${s.label} · avance ${s.avance.toFixed(2)}%`;
+    }
+    // no llamamos persist() durante playback para no contaminar localStorage
+    renderSnaps();
+    renderMovements();
+    renderInforme();
+    renderGrid();
+    renderDuelos();
+    renderCastilloCompare();
+    renderMap();
+  }
+  function pbStart(){
+    if(!DB || !DB.snapshots.length) return;
+    // guardar estado inicial
+    if(state.pbSavedInactive === null){
+      state.pbSavedInactive = [...state.snapsInactive];
+    }
+    state.pbPlaying = true;
+    document.getElementById('playBtn').classList.add('playing');
+    document.getElementById('playBtn').textContent = '⏸';
+    pbTick();
+  }
+  function pbStop(){
+    state.pbPlaying = false;
+    if(pbTimer){ clearTimeout(pbTimer); pbTimer = null; }
+    const btn = document.getElementById('playBtn');
+    if(btn){ btn.classList.remove('playing'); btn.textContent = '▶'; }
+  }
+  function pbTick(){
+    if(!state.pbPlaying) return;
+    const n = DB.snapshots.length;
+    if(state.pbIdx >= n-1){
+      // terminó
+      pbStop();
+      return;
+    }
+    state.pbIdx++;
+    pbApplyFrame(state.pbIdx);
+    pbTimer = setTimeout(pbTick, state.pbSpeed);
+  }
+  function pbReset(){
+    // restaurar snaps activos al estado del usuario
+    pbStop();
+    if(state.pbSavedInactive !== null){
+      state.snapsInactive = new Set(state.pbSavedInactive);
+      state.pbSavedInactive = null;
+    }
+    // renderizar todo con el estado restaurado
+    renderSnaps();
+    renderMovements();
+    renderInforme();
+    renderGrid();
+    renderDuelos();
+    renderCastilloCompare();
+    renderMap();
+  }
+  function pbWirePlayback(){
+    const slider = document.getElementById('pbSlider');
+    const playBtn = document.getElementById('playBtn');
+    const fwdBtn = document.getElementById('stepFwdBtn');
+    const backBtn = document.getElementById('stepBackBtn');
+    const cumCb = document.getElementById('pbCumulative');
+    const lbl = document.getElementById('pbLabel');
+    const n = DB.snapshots.length;
+    slider.max = n-1;
+    slider.value = n-1;
+    state.pbIdx = n-1;
+    const lastS = DB.snapshots[n-1];
+    if(lbl) lbl.textContent = `s${n-1}/${n-1} · ${lastS.label} · avance ${lastS.avance.toFixed(2)}%`;
+
+    playBtn.onclick = () => {
+      if(state.pbPlaying){
+        pbStop();
+      } else {
+        // si está al final, empezar de nuevo desde 0
+        if(state.pbIdx >= n-1){
+          state.pbIdx = -1;
+        }
+        pbStart();
+      }
+    };
+    fwdBtn.onclick = () => {
+      if(state.pbSavedInactive === null){
+        state.pbSavedInactive = [...state.snapsInactive];
+      }
+      pbStop();
+      if(state.pbIdx < n-1){
+        pbApplyFrame(state.pbIdx + 1);
+      }
+    };
+    backBtn.onclick = () => {
+      if(state.pbSavedInactive === null){
+        state.pbSavedInactive = [...state.snapsInactive];
+      }
+      pbStop();
+      if(state.pbIdx > 0){
+        pbApplyFrame(state.pbIdx - 1);
+      }
+    };
+    slider.oninput = () => {
+      if(state.pbSavedInactive === null){
+        state.pbSavedInactive = [...state.snapsInactive];
+      }
+      pbStop();
+      pbApplyFrame(parseInt(slider.value, 10));
+    };
+    cumCb.onchange = () => {
+      state.pbCumulative = cumCb.checked;
+      // re-aplicar frame actual con el nuevo modo
+      pbApplyFrame(state.pbIdx);
+    };
+    document.querySelectorAll('.pb-sp').forEach(b => {
+      b.onclick = () => {
+        state.pbSpeed = parseInt(b.dataset.speed, 10);
+        document.querySelectorAll('.pb-sp').forEach(x => x.classList.toggle('act', x === b));
+      };
+    });
+    // doble click en snaps bar → reset playback
+    document.getElementById('snapsAll')?.addEventListener('dblclick', pbReset);
+  }
+
   // ---------- boot ----------
   async function boot(){
     const status = document.getElementById('status');
@@ -2410,6 +2609,9 @@
         persist();
         renderMap();
       };
+
+      // inicializar controles de playback
+      pbWirePlayback();
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>

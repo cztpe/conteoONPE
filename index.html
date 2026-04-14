@@ -391,11 +391,48 @@
     const seen=new Set(); const clean=[];
     for(const r of results){ const ts=r.data.snapshot?.ts; if(!ts||seen.has(ts)) continue; seen.add(ts); clean.push(r); }
     if(!clean.length) throw new Error('sin snapshots válidos');
-    const base = clean[0].data;
+    // tomar como base el snapshot con MÁS nodos (el más completo, normalmente el más reciente con extranjero)
+    let base = clean[0].data;
+    let baseSize = Object.keys(base.nodes).length;
+    for(const r of clean){
+      const sz = Object.keys(r.data.nodes).length;
+      if(sz > baseSize){ base = r.data; baseSize = sz; }
+    }
+    // fusionar nodos: cualquier nodo presente en cualquier snapshot entra al árbol
+    const allNodes = {...base.nodes};
+    for(const r of clean){
+      for(const [k,n] of Object.entries(r.data.nodes)){
+        if(!allNodes[k]) allNodes[k] = n;
+      }
+    }
+    // recalcular children por si la fusión introdujo nodos huérfanos
+    const childrenMap = {};
+    for(const k in allNodes) childrenMap[k] = [];
+    for(const [k,n] of Object.entries(allNodes)){
+      if(n.parent && childrenMap[n.parent] && !childrenMap[n.parent].includes(k)){
+        childrenMap[n.parent].push(k);
+      }
+    }
+    for(const k in allNodes){
+      // ordenar alfabéticamente
+      childrenMap[k].sort((a,b) => (allNodes[a].nombre||'').localeCompare(allNodes[b].nombre||''));
+      // si el extranjero virtual existe como hijo del root, ponerlo al final
+      if(k === ROOT){
+        const extIdx = childrenMap[k].findIndex(x => allNodes[x]?.ambito === 2 || (allNodes[x]?.ubigeo||'').startsWith('9'));
+        if(extIdx >= 0){
+          const extKey = childrenMap[k].splice(extIdx,1)[0];
+          childrenMap[k].push(extKey);
+        }
+      }
+      allNodes[k] = {...allNodes[k], children: childrenMap[k]};
+    }
+
     const snapshots = clean.map((r,i)=>({id:i,ts:r.data.snapshot.ts,label:r.data.snapshot.label,avance:r.data.snapshot.avance,_file:r.name}));
     const data = {};
-    for(const k in base.nodes) data[k] = clean.map(r=>r.data.data[k] || {av:0,part:0,cont:0,total:0,votes:{}});
-    return {snapshots, candidatos_master: base.candidatos_master, nodes: base.nodes, data};
+    for(const k in allNodes){
+      data[k] = clean.map(r => r.data.data[k] || {av:0,part:0,cont:0,total:0,votes:{}});
+    }
+    return {snapshots, candidatos_master: base.candidatos_master, nodes: allNodes, data};
   }
 
   // ---------- helpers ----------

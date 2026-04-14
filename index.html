@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>onpe · seguimiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#777; --faint:#aaa;
+    --line:#ececec; --line-strong:#d0d0d0;
+    --accent:#5a7a3a; --accent-soft:#eef3e6;
+    --up:#5a7a3a; --down:#b45a1f;
+    --blank:#9a8858; --nulo:#a85a5a;
+    --sel:#f6f9ef;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:'Fira Code',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1700px;margin:0 auto;padding:24px 22px 80px}
+  .back{font-size:12px;color:var(--muted);display:inline-block;margin-bottom:14px}
+  h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+  .crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;margin:14px 0 10px;padding:10px 12px;border:1px solid var(--line);background:#fafafa}
+  .crumbs .c{padding:3px 8px;cursor:pointer;border:1px solid transparent}
+  .crumbs .c:hover{border-color:var(--line-strong);background:#fff}
+  .crumbs .c.active{color:var(--accent);font-weight:500}
+  .crumbs .sep{color:var(--faint)}
+  .crumbs select{font-family:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line-strong);background:#fff;margin-left:6px}
+  .snaps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .snap{font-size:11px;padding:4px 9px;border:1px solid var(--line);background:#fff;display:flex;gap:8px;align-items:center}
+  .snap b{color:var(--accent)}
+  .snap .av{color:var(--muted);font-size:10px}
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;padding:12px 14px;border:1px solid var(--line);background:#fcfcfc}
+  .stat{display:flex;flex-direction:column;gap:1px}
+  .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .stat .v{font-size:14px;font-weight:500}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--line);background:#fff}
+  .panel h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .panel h2 .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
+  .ctbl-head,.crow{display:grid;grid-template-columns:28px minmax(160px,1.8fr) 80px 60px 60px 90px 60px;align-items:center;gap:0;padding:0 8px;border-bottom:1px solid var(--line)}
+  .ctbl-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:8px;padding-bottom:8px;background:#fafafa}
+  .crow{min-height:36px;cursor:pointer;transition:background .06s}
+  .crow:hover{background:#f7f9f4}
+  .crow.sel{background:var(--sel);border-left:3px solid var(--accent);padding-left:5px}
+  .crow .cell{padding:5px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crow .rank{color:var(--muted);font-size:11px;text-align:right;padding-right:6px}
+  .crow .who{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+  .crow .who .nm{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crow .who .ag{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crow.blank .who .nm{color:var(--blank);font-style:italic}
+  .crow.nulo .who .nm{color:var(--nulo);font-style:italic}
+  .crow .num{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+  .crow .pct{color:var(--muted);font-size:11px}
+  .crow .delta{font-size:10px;text-align:right}
+  .crow .delta.up{color:var(--up)}
+  .crow .delta.down{color:var(--down)}
+  .crow .delta.flat{color:var(--faint)}
+  .crow .spark{padding:0 6px}
+  .crow .wins{text-align:right;font-size:10px;color:var(--muted)}
+  .crow .wins b{color:var(--accent);font-weight:500}
+  .dp-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:12px}
+  .dp-head{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .dp-head .nm{font-size:14px;font-weight:500}
+  .dp-head .ag{font-size:11px;color:var(--muted);margin-top:2px}
+  .dp-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .dp-stats .stat .v{font-size:16px}
+  .dp-section{padding:10px 16px 14px;border-bottom:1px solid var(--line)}
+  .dp-section:last-child{border-bottom:0}
+  .dp-section h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+  .dp-traj{display:block;width:100%;height:64px}
+  .tlist{display:flex;flex-direction:column;gap:2px;font-size:11px}
+  .tlist .ti{display:grid;grid-template-columns:1fr 60px 44px;gap:4px;align-items:center;padding:3px 2px;cursor:pointer;border-bottom:1px dotted var(--line)}
+  .tlist .ti:hover{color:var(--accent);background:#fafafa}
+  .tlist .ti .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tlist .ti .vt{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .tlist .ti .pc{text-align:right;color:var(--muted)}
+  .tlist .ti.win .pc{color:var(--accent);font-weight:500}
+  .badge-rank{display:inline-block;padding:0 4px;border:1px solid var(--line-strong);font-size:9px;margin-left:4px;color:var(--muted)}
+  .badge-rank.r1{border-color:var(--accent);color:var(--accent);font-weight:500}
+  .terr-head,.trow{display:grid;grid-template-columns:minmax(140px,1.4fr) 60px 1.2fr 60px;padding:0 10px;border-bottom:1px solid var(--line);align-items:center}
+  .terr-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:#fafafa;padding-top:8px;padding-bottom:8px}
+  .trow{min-height:32px;cursor:pointer;font-size:12px}
+  .trow:hover{background:#f7f9f4}
+  .trow.hl{background:var(--sel)}
+  .trow .cell{padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trow .av{font-size:10px;color:var(--muted);text-align:right}
+  .trow .av b{color:var(--fg);font-weight:400}
+  .trow .wn{font-size:11px;color:var(--accent)}
+  .trow .wn.blank{color:var(--blank)}
+  .trow .pc{text-align:right;color:var(--muted);font-size:10px}
+  .topctl{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .topctl input,.topctl select{font-family:inherit;font-size:12px;padding:5px 9px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);outline:none}
+  .topctl input[type=search]{width:220px}
+  .topctl input:focus,.topctl select:focus{border-color:var(--accent)}
+  .topctl .spacer{flex:1}
+  .status{padding:14px 16px;border:1px solid var(--line);background:#fafafa;color:var(--muted);font-size:12px;margin-bottom:16px}
+  .status.err{border-color:var(--down);color:var(--down);background:#fbf2ed}
+  .status code{background:#fff;padding:1px 5px;border:1px solid var(--line);font-size:11px}
+  footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+  code{background:#f4f4f0;padding:1px 4px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="#">← onpe/</a>
+  <h1>onpe · seguimiento de candidatxs</h1>
+  <div class="sub">ranking por territorio · evolución entre snapshots · elecciones 2026</div>
+
+  <div class="status" id="status">descubriendo snapshots…</div>
+
+  <div id="app" style="display:none">
+    <div class="crumbs" id="crumbs"></div>
+    <div class="snaps" id="snaps"></div>
+    <div class="summary" id="summary"></div>
+
+    <div class="topctl">
+      <input type="search" id="q" placeholder="filtrar candidatx…">
+      <select id="sortBy">
+        <option value="votes">ordenar: votos</option>
+        <option value="pct">ordenar: % válidos</option>
+        <option value="delta">ordenar: Δ vs snap anterior</option>
+        <option value="wins">ordenar: # territorios ganados</option>
+      </select>
+      <select id="hideBN">
+        <option value="show">incluir blancos/nulos</option>
+        <option value="hide">excluir blancos/nulos</option>
+      </select>
+      <span class="spacer"></span>
+      <span style="color:var(--muted);font-size:11px">click candidatx → detalle · click territorio → explorar</span>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h2>candidatxs <span class="meta" id="scopeMeta">—</span></h2>
+          <div>
+            <div class="ctbl-head">
+              <div class="cell"></div>
+              <div class="cell">candidatx / agrupación</div>
+              <div class="cell" style="text-align:right">votos</div>
+              <div class="cell" style="text-align:right">%</div>
+              <div class="cell" style="text-align:right">Δ</div>
+              <div class="cell" style="text-align:center">trayectoria</div>
+              <div class="cell" style="text-align:right">gana</div>
+            </div>
+            <div id="clist"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <h2>territorios dentro de <span id="scopeName">perú</span> <span class="meta" id="scopeChildMeta"></span></h2>
+          <div>
+            <div class="terr-head">
+              <div class="cell">nombre</div>
+              <div class="cell" style="text-align:right">avance</div>
+              <div class="cell">1er lugar</div>
+              <div class="cell" style="text-align:right">%</div>
+            </div>
+            <div id="tlist"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="detail">
+        <h2>detalle <span class="meta" id="detailMeta">—</span></h2>
+        <div id="dp"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    datos: onpe · autodescubrimiento vía github api · los snapshots se ordenan por timestamp · cache-bust por si el cdn tarda
+  </footer>
+</div>
+
+<script>
+(() => {
+  const ROOT = '__root__';
+  let DB = null;
+  const state = { scope: ROOT, selected: null, sortBy: 'votes', hideBN: false, filter: '' };
+
+  // ========== DESCUBRIMIENTO DE SNAPSHOTS ==========
+  // Lista archivos onpe_data_*.json en la misma carpeta vía GitHub API.
+  // Soporta override con ?repo=owner/name&path=/sub/path/ o ?manifest=url
+  // Fallback: intenta cargar ./manifest.json con un array ["a.json","b.json",...]
+
+  const FILE_RE = /^onpe_data_.*\.json$/i;
+
+  function parseLocation(){
+    const params = new URLSearchParams(location.search);
+    const override = params.get('repo');  // "owner/name"
+    const overridePath = params.get('path'); // "/sub/"
+    if(override){
+      const [owner, repo] = override.split('/');
+      let p = overridePath || location.pathname;
+      if(!p.endsWith('/')) p = p.replace(/\/[^/]*$/, '/');
+      return {owner, repo, path: p};
+    }
+    // auto-detect github pages
+    const host = location.hostname; // ej. carloszevallostrigoso.github.io
+    if(!host.endsWith('.github.io')) return null;
+    const owner = host.split('.')[0];
+    let path = location.pathname;
+    if(path.endsWith('.html')) path = path.replace(/\/[^/]+$/, '/');
+    if(!path.endsWith('/')) path += '/';
+    // user-page repo (más común en este caso)
+    const userRepo = {owner, repo: host, path};
+    // project-page fallback: si hay primer segmento, tratarlo como repo
+    const segs = path.split('/').filter(Boolean);
+    let projRepo = null;
+    if(segs.length >= 1){
+      projRepo = {owner, repo: segs[0], path: '/' + segs.slice(1).join('/') + (segs.length>1?'/':'')};
+    }
+    return {userRepo, projRepo};
+  }
+
+  async function listViaGithub({owner, repo, path}){
+    const api = `https://api.github.com/repos/${owner}/${repo}/contents${path}`;
+    const r = await fetch(api, {headers:{'Accept':'application/vnd.github+json'}});
+    if(!r.ok) throw new Error(`github api ${r.status}`);
+    const items = await r.json();
+    if(!Array.isArray(items)) throw new Error('respuesta inesperada');
+    return items.filter(it => it.type==='file' && FILE_RE.test(it.name))
+                .map(it => ({name: it.name, url: it.download_url}));
+  }
+
+  async function discover(){
+    const status = document.getElementById('status');
+    const params = new URLSearchParams(location.search);
+
+    // 1) manifest explícito
+    const manifestUrl = params.get('manifest') || './manifest.json';
+    try{
+      const r = await fetch(manifestUrl + '?t=' + Date.now(), {cache:'no-store'});
+      if(r.ok){
+        const arr = await r.json();
+        if(Array.isArray(arr) && arr.length){
+          status.textContent = `manifest: ${arr.length} snapshot(s)`;
+          return arr.map(n => ({name: n, url: n}));
+        }
+      }
+    }catch(e){}
+
+    // 2) github api
+    const loc = parseLocation();
+    if(loc){
+      if(loc.owner){
+        // override
+        status.textContent = `github api: ${loc.owner}/${loc.repo}${loc.path}`;
+        return await listViaGithub(loc);
+      }
+      // auto: probar user-repo, luego project-repo
+      try{
+        status.textContent = `github api: ${loc.userRepo.owner}/${loc.userRepo.repo}${loc.userRepo.path}`;
+        const list = await listViaGithub(loc.userRepo);
+        if(list.length) return list;
+      }catch(e){}
+      if(loc.projRepo){
+        try{
+          status.textContent = `github api: ${loc.projRepo.owner}/${loc.projRepo.repo}${loc.projRepo.path}`;
+          const list = await listViaGithub(loc.projRepo);
+          if(list.length) return list;
+        }catch(e){}
+      }
+    }
+
+    throw new Error('no encontré snapshots. sube archivos con el patrón onpe_data_*.json en la misma carpeta, o crea un manifest.json con ["archivo1.json","archivo2.json"]');
+  }
+
+  async function fetchAllSnapshots(files){
+    const results = await Promise.all(files.map(async f => {
+      const url = f.url.startsWith('http') ? f.url : (f.url + '?t=' + Date.now());
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok) throw new Error(`${f.name}: HTTP ${r.status}`);
+      return {name: f.name, data: await r.json()};
+    }));
+    // ordenar por snapshot.ts
+    results.sort((a,b) => (a.data.snapshot?.ts||'').localeCompare(b.data.snapshot?.ts||''));
+    return results;
+  }
+
+  function mergeSnapshots(results){
+    if(!results.length) throw new Error('sin snapshots');
+    // deduplicar por ts por si suben el mismo dos veces
+    const seen = new Set();
+    const clean = [];
+    for(const r of results){
+      const ts = r.data.snapshot?.ts;
+      if(!ts || seen.has(ts)) continue;
+      seen.add(ts); clean.push(r);
+    }
+    const base = clean[0].data;
+    const snapshots = clean.map((r,i) => ({id:i, ts:r.data.snapshot.ts, label:r.data.snapshot.label, avance:r.data.snapshot.avance, _file:r.name}));
+    const data = {};
+    for(const k in base.nodes){
+      data[k] = clean.map(r => r.data.data[k] || {av:0,part:0,cont:0,total:0,votes:{}});
+    }
+    return {
+      snapshots,
+      candidatos_master: base.candidatos_master,
+      nodes: base.nodes,
+      data
+    };
+  }
+
+  // ========== RENDER (igual que antes) ==========
+  const last = () => DB.snapshots.length - 1;
+  const fmt = n => (n==null||isNaN(n))?'—':Number(n).toLocaleString('es-PE');
+  const fmtS = n => { if(n==null||isNaN(n)) return '—'; n=Number(n); if(Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'k'; return String(n); };
+  const pct = n => (n==null||isNaN(n))?'—':Number(n).toFixed(2)+'%';
+  const isBN = agr => agr==='VOTOS EN BLANCO' || agr==='VOTOS NULOS';
+  const candByCode = c => DB.candidatos_master.find(x=>x.code===c);
+  const shortName = nm => { if(!nm) return ''; const p=nm.trim().split(/\s+/); return p.length<=2?nm:p[0]+' '+p[p.length-2]; };
+
+  function ancestors(key){ const ch=[]; let k=key; while(k!=null){ch.unshift(k); k=DB.nodes[k]?.parent;} return ch; }
+  function childrenOf(key){ return DB.nodes[key]?.children || []; }
+  function votesAt(key,code,i){ return DB.data[key]?.[i]?.votes?.[code] ?? null; }
+  function totalValidVotesAt(key,i){ const v=DB.data[key]?.[i]?.votes; if(!v) return 0; let t=0; for(const code in v){ const c=candByCode(code); if(c && !isBN(c.agr)) t+=v[code]; } return t; }
+  function winnerAt(key,i){ const d=DB.data[key]?.[i]; if(!d?.votes) return null; let best=null,bv=-1; for(const [code,v] of Object.entries(d.votes)){ const c=candByCode(code); if(!c||isBN(c.agr)) continue; if(v>bv){bv=v;best=code;} } return best; }
+  function winCount(key,code){ const i=last(); let n=0; for(const ch of childrenOf(key)){ if(winnerAt(ch,i)===code) n++; } return n; }
+  function rankOf(key,code,i){ const d=DB.data[key]?.[i]; if(!d?.votes) return null; const arr=[]; for(const [c,v] of Object.entries(d.votes)){ const cc=candByCode(c); if(!cc||isBN(cc.agr)) continue; arr.push([c,v]); } arr.sort((a,b)=>b[1]-a[1]); const idx=arr.findIndex(x=>x[0]===code); return idx<0?null:idx+1; }
+
+  function renderCrumbs(){
+    const el=document.getElementById('crumbs');
+    const chain=ancestors(state.scope);
+    const parts=chain.map((k,idx)=>{ const n=DB.nodes[k]; const nm=k===ROOT?'PERÚ':n.nombre; return `<span class="c ${idx===chain.length-1?'active':''}" data-key="${k}">${nm}</span>`+(idx<chain.length-1?`<span class="sep">›</span>`:''); });
+    const children=childrenOf(state.scope);
+    if(children.length>0){
+      const nv=DB.nodes[state.scope].nivel;
+      const childLvl=nv==='nacional'?'depto':nv==='departamento'?'provincia':'distrito';
+      parts.push(`<select id="childPick"><option value="">— ir a ${childLvl} —</option>`+children.map(c=>`<option value="${c}">${DB.nodes[c].nombre}</option>`).join('')+`</select>`);
+    }
+    el.innerHTML=parts.join('');
+    el.querySelectorAll('.c').forEach(e=>e.onclick=()=>{state.scope=e.dataset.key; state.selected=null; renderAll();});
+    const pick=document.getElementById('childPick');
+    if(pick) pick.onchange=e=>{ if(e.target.value){ state.scope=e.target.value; state.selected=null; renderAll(); } };
+  }
+  function renderSnaps(){
+    const el=document.getElementById('snaps');
+    el.innerHTML=DB.snapshots.map((s,i)=>{ const av=DB.data[state.scope]?.[i]?.av; return `<div class="snap" title="${s._file||''}">s${i} · <b>${s.label}</b> <span class="av">${pct(av)}</span></div>`; }).join('');
+  }
+  function renderSummary(){
+    const n=DB.nodes[state.scope]; const d=DB.data[state.scope]?.[last()]||{};
+    const w=winnerAt(state.scope,last()); const wc=w?candByCode(w):null;
+    const totalV=totalValidVotesAt(state.scope,last()); const wv=wc?votesAt(state.scope,w,last()):0;
+    const runner=(()=>{ const vs=d.votes||{}; const arr=Object.entries(vs).filter(([c])=>{const cc=candByCode(c); return cc && !isBN(cc.agr);}).sort((a,b)=>b[1]-a[1]); return arr[1]||null; })();
+    const margin=runner&&wv?((wv-runner[1])/totalV*100):null;
+    document.getElementById('summary').innerHTML=`
+      <div class="stat"><div class="k">territorio</div><div class="v">${n.nombre||'PERÚ'}</div></div>
+      <div class="stat"><div class="k">avance</div><div class="v">${pct(d.av)}</div></div>
+      <div class="stat"><div class="k">actas</div><div class="v">${fmt(d.cont)} / ${fmt(d.total)}</div></div>
+      <div class="stat"><div class="k">participación</div><div class="v">${pct(d.part)}</div></div>
+      <div class="stat"><div class="k">1er lugar</div><div class="v" style="color:var(--accent)">${wc?shortName(wc.cand||wc.agr):'—'}</div></div>
+      <div class="stat"><div class="k">margen sobre 2°</div><div class="v">${margin!=null?pct(margin):'—'}</div></div>`;
+  }
+  function buildCandidateRows(){
+    const i=last(); const totV=totalValidVotesAt(state.scope,i);
+    return DB.candidatos_master.map(c=>{
+      const v=votesAt(state.scope,c.code,i);
+      const prev=i>0?votesAt(state.scope,c.code,i-1):null;
+      const delta=(v!=null&&prev!=null)?v-prev:null;
+      const pctV=(v!=null&&totV>0&&!isBN(c.agr))?v/totV*100:null;
+      const wins=winCount(state.scope,c.code);
+      const series=DB.snapshots.map((_,j)=>votesAt(state.scope,c.code,j)??0);
+      return {code:c.code, cand:c, v, delta, pctV, wins, series, isBN:isBN(c.agr)};
+    });
+  }
+  function sparkSVG(series,w=80,h=22){
+    if(series.length<2) return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><circle cx="${w/2}" cy="${h/2}" r="2" fill="#5a7a3a"/></svg>`;
+    const max=Math.max(...series,1),min=Math.min(...series,0),rng=(max-min)||1;
+    const pts=series.map((y,x)=>{const px=(x/(series.length-1))*(w-4)+2; const py=h-2-((y-min)/rng)*(h-4); return `${px.toFixed(1)},${py.toFixed(1)}`;}).join(' ');
+    const lastPt=pts.split(' ').pop().split(',');
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="#5a7a3a" stroke-width="1.3"/><circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="1.8" fill="#5a7a3a"/></svg>`;
+  }
+  function renderCList(){
+    let rows=buildCandidateRows();
+    if(state.hideBN) rows=rows.filter(r=>!r.isBN);
+    if(state.filter){ const q=state.filter.toLowerCase(); rows=rows.filter(r=>(r.cand.cand||'').toLowerCase().includes(q)||(r.cand.agr||'').toLowerCase().includes(q)); }
+    const cmp={votes:(a,b)=>(b.v||0)-(a.v||0),pct:(a,b)=>(b.pctV||-1)-(a.pctV||-1),delta:(a,b)=>(b.delta||-Infinity)-(a.delta||-Infinity),wins:(a,b)=>(b.wins||0)-(a.wins||0)||(b.v||0)-(a.v||0)}[state.sortBy];
+    rows.sort(cmp);
+    const scN=childrenOf(state.scope).length;
+    document.getElementById('scopeMeta').textContent=`${rows.length} opciones · en ${DB.nodes[state.scope].nombre||'PERÚ'}`;
+    const html=rows.map((r,idx)=>{
+      const cls=r.isBN?(r.cand.agr==='VOTOS NULOS'?'nulo':'blank'):'';
+      const sel=state.selected===r.code?'sel':'';
+      let dtx='—',dcl='flat'; if(r.delta!=null){ if(r.delta>0){dtx='+'+fmtS(r.delta);dcl='up';} else if(r.delta<0){dtx=fmtS(r.delta);dcl='down';} else dtx='0'; }
+      const wtxt=scN>0?(r.wins>0?`<b>${r.wins}</b>/${scN}`:`${r.wins}/${scN}`):'—';
+      return `<div class="crow ${cls} ${sel}" data-code="${r.code}">
+        <div class="cell rank">${idx+1}</div>
+        <div class="cell who"><span class="nm">${r.cand.cand?shortName(r.cand.cand):r.cand.agr.toLowerCase()}</span><span class="ag">${r.cand.agr.toLowerCase()}</span></div>
+        <div class="cell num">${fmt(r.v)}</div>
+        <div class="cell num pct">${r.pctV!=null?pct(r.pctV):'—'}</div>
+        <div class="cell delta ${dcl}">${dtx}</div>
+        <div class="cell spark">${sparkSVG(r.series)}</div>
+        <div class="cell wins">${wtxt}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('clist').innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--muted)">sin resultados</div>';
+    document.getElementById('clist').querySelectorAll('.crow').forEach(el=>el.onclick=()=>{state.selected=el.dataset.code; renderDetail(); renderCList(); renderTList();});
+  }
+  function renderTList(){
+    const children=childrenOf(state.scope); const n=DB.nodes[state.scope]; const nv=n.nivel;
+    const childLvl=nv==='nacional'?'departamentos':nv==='departamento'?'provincias':nv==='provincia'?'distritos':'—';
+    document.getElementById('scopeName').textContent=(n.nombre||'PERÚ').toLowerCase();
+    document.getElementById('scopeChildMeta').textContent=children.length?`${children.length} ${childLvl}`:'sin hijos';
+    if(children.length===0){ document.getElementById('tlist').innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted)">nivel distrital · sin subdivisión</div>`; return; }
+    const i=last();
+    const rows=children.map(k=>{
+      const d=DB.data[k]?.[i]||{}; const w=winnerAt(k,i); const wc=w?candByCode(w):null;
+      const tv=totalValidVotesAt(k,i); const wv=w?votesAt(k,w,i):0; const wpc=tv>0&&w?wv/tv*100:null;
+      const votes=d.votes||{}; const blanco=Object.entries(votes).find(([c])=>candByCode(c)?.agr==='VOTOS EN BLANCO');
+      const useBlank=blanco&&blanco[1]>(wv||0);
+      return {k,nm:DB.nodes[k].nombre,av:d.av,w,wc,wpc,useBlank};
+    }).sort((a,b)=>a.nm.localeCompare(b.nm));
+    const hl=state.selected;
+    document.getElementById('tlist').innerHTML=rows.map(r=>{
+      const isW=hl&&r.w===hl;
+      const leadName=r.useBlank?'voto en blanco':(r.wc?shortName(r.wc.cand||r.wc.agr):'—');
+      const leadCls=r.useBlank?'blank':'';
+      return `<div class="trow ${isW?'hl':''}" data-key="${r.k}"><div class="cell">${r.nm}</div><div class="cell av"><b>${pct(r.av)}</b></div><div class="cell wn ${leadCls}">${leadName}${isW?' ★':''}</div><div class="cell pc">${r.wpc!=null?pct(r.wpc):'—'}</div></div>`;
+    }).join('');
+    document.getElementById('tlist').querySelectorAll('.trow').forEach(el=>el.onclick=()=>{state.scope=el.dataset.key; state.selected=null; renderAll();});
+  }
+  function renderDetail(){
+    const dp=document.getElementById('dp'); const meta=document.getElementById('detailMeta');
+    if(!state.selected){ meta.textContent='—'; dp.innerHTML=`<div class="dp-empty">selecciona unx candidatx del ranking para ver su detalle territorial y trayectoria</div>`; return; }
+    const code=state.selected; const c=candByCode(code); if(!c){ dp.innerHTML=''; return; }
+    meta.textContent=c.agr.toLowerCase();
+    const i=last(); const v=votesAt(state.scope,code,i); const prev=i>0?votesAt(state.scope,code,i-1):null;
+    const delta=(v!=null&&prev!=null)?v-prev:null;
+    const totV=totalValidVotesAt(state.scope,i);
+    const pctV=(v!=null&&totV>0&&!isBN(c.agr))?v/totV*100:null;
+    const rank=rankOf(state.scope,code,i);
+    const series=DB.snapshots.map((_,j)=>votesAt(state.scope,code,j)??0);
+    const children=childrenOf(state.scope);
+    const childPerf=children.map(k=>{ const tv=totalValidVotesAt(k,i); const vv=votesAt(k,code,i)||0; const pc=tv>0?vv/tv*100:null; const r=rankOf(k,code,i); return {k,nm:DB.nodes[k].nombre,v:vv,pc,rank:r}; }).filter(x=>x.v>0);
+    const topByPct=[...childPerf].sort((a,b)=>(b.pc||0)-(a.pc||0)).slice(0,8);
+    const topByVotes=[...childPerf].sort((a,b)=>b.v-a.v).slice(0,8);
+    const wins=childPerf.filter(x=>x.rank===1);
+    function traj(s){
+      const w=340,h=64,pad=10;
+      if(s.length<2) return `<svg class="dp-traj" viewBox="0 0 ${w} ${h}"><text x="${w/2}" y="${h/2+4}" text-anchor="middle" fill="#aaa" font-size="11">solo 1 snapshot · esperando más</text><circle cx="${w/2}" cy="${h/2}" r="3" fill="#5a7a3a"/></svg>`;
+      const max=Math.max(...s,1),min=Math.min(...s,0),rng=(max-min)||1;
+      const pts=s.map((y,x)=>{const px=pad+(x/(s.length-1))*(w-pad*2); const py=h-pad-((y-min)/rng)*(h-pad*2); return [px,py];});
+      const line=pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
+      const area=`${line} L${pts[pts.length-1][0]},${h-pad} L${pts[0][0]},${h-pad} Z`;
+      const dots=pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.2" fill="#5a7a3a"/><text x="${p[0]}" y="${h-1}" text-anchor="middle" font-size="8" fill="#aaa">s${i}</text><text x="${p[0]}" y="${p[1]-6}" text-anchor="middle" font-size="8" fill="#5a7a3a">${fmtS(s[i])}</text>`).join('');
+      return `<svg class="dp-traj" viewBox="0 0 ${w} ${h}"><path d="${area}" fill="#5a7a3a" opacity="0.08"/><path d="${line}" fill="none" stroke="#5a7a3a" stroke-width="1.5"/>${dots}</svg>`;
+    }
+    dp.innerHTML=`
+      <div class="dp-head"><div class="nm">${c.cand||c.agr.toLowerCase()}</div><div class="ag">${c.agr.toLowerCase()}</div></div>
+      <div class="dp-stats">
+        <div class="stat"><div class="k">votos</div><div class="v">${fmt(v)}</div></div>
+        <div class="stat"><div class="k">% válidos</div><div class="v">${pctV!=null?pct(pctV):'—'}</div></div>
+        <div class="stat"><div class="k">puesto aquí</div><div class="v">${rank?('#'+rank):'—'}</div></div>
+        <div class="stat"><div class="k">Δ vs snap anterior</div><div class="v" style="color:${delta>0?'var(--up)':delta<0?'var(--down)':'var(--faint)'}">${delta==null?'—':(delta>0?'+':'')+fmt(delta)}</div></div>
+      </div>
+      <div class="dp-section"><h3>trayectoria en ${DB.nodes[state.scope].nombre||'PERÚ'}</h3>${traj(series)}</div>
+      ${children.length>0?`
+      <div class="dp-section"><h3>territorios donde va 1° <span style="color:var(--accent);font-weight:400">(${wins.length}/${children.length})</span></h3><div class="tlist">${wins.length===0?`<div style="color:var(--muted);font-size:11px;padding:4px 0">no lidera ningún hijo de este nivel</div>`:wins.sort((a,b)=>(b.pc||0)-(a.pc||0)).slice(0,10).map(x=>`<div class="ti win" data-key="${x.k}"><span class="nm">${x.nm}</span><span class="vt">${fmt(x.v)}</span><span class="pc">${x.pc!=null?x.pc.toFixed(1)+'%':'—'}</span></div>`).join('')}</div></div>
+      <div class="dp-section"><h3>fortalezas (top % válidos)</h3><div class="tlist">${topByPct.map(x=>`<div class="ti ${x.rank===1?'win':''}" data-key="${x.k}"><span class="nm">${x.nm} <span class="badge-rank ${x.rank===1?'r1':''}">${x.rank?'#'+x.rank:'—'}</span></span><span class="vt">${fmt(x.v)}</span><span class="pc">${x.pc!=null?x.pc.toFixed(1)+'%':'—'}</span></div>`).join('')}</div></div>
+      <div class="dp-section"><h3>volumen (top votos absolutos)</h3><div class="tlist">${topByVotes.map(x=>`<div class="ti ${x.rank===1?'win':''}" data-key="${x.k}"><span class="nm">${x.nm} <span class="badge-rank ${x.rank===1?'r1':''}">${x.rank?'#'+x.rank:'—'}</span></span><span class="vt">${fmt(x.v)}</span><span class="pc">${x.pc!=null?x.pc.toFixed(1)+'%':'—'}</span></div>`).join('')}</div></div>`:''}`;
+    dp.querySelectorAll('.ti').forEach(el=>el.onclick=()=>{ if(el.dataset.key){ state.scope=el.dataset.key; renderAll(); } });
+  }
+  function renderAll(){ renderCrumbs(); renderSnaps(); renderSummary(); renderCList(); renderTList(); renderDetail(); }
+
+  // ========== BOOT ==========
+  async function boot(){
+    const status = document.getElementById('status');
+    try{
+      status.textContent = 'descubriendo snapshots…';
+      const files = await discover();
+      status.textContent = `fusionando ${files.length} snapshot(s)…`;
+      const results = await fetchAllSnapshots(files);
+      DB = mergeSnapshots(results);
+      // enganchar controles
+      document.getElementById('q').addEventListener('input',e=>{state.filter=e.target.value.trim(); renderCList();});
+      document.getElementById('sortBy').addEventListener('change',e=>{state.sortBy=e.target.value; renderCList();});
+      document.getElementById('hideBN').addEventListener('change',e=>{state.hideBN=e.target.value==='hide'; renderCList();});
+      document.getElementById('app').style.display='';
+      status.style.display='none';
+      renderAll();
+    }catch(err){
+      status.className = 'status err';
+      status.innerHTML = `<b>error:</b> ${err.message}<br><br>
+      <b>opciones para cargar datos:</b><br>
+      1. subir archivos <code>onpe_data_*.json</code> en la misma carpeta (autodescubrimiento vía github api — solo funciona en github pages)<br>
+      2. crear un <code>manifest.json</code> en la misma carpeta con <code>["archivo1.json","archivo2.json",...]</code><br>
+      3. pasar override: <code>?repo=owner/nombre&path=/sub/</code> o <code>?manifest=url/manifest.json</code>`;
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

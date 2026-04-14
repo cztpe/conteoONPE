@@ -261,6 +261,10 @@
         <button data-xmode="snap" class="act">x: snapshots</button>
         <button data-xmode="avance">x: avance →100%</button>
       </div>
+      <label id="castilloToggleWrap" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border:1px solid var(--line);border-radius:3px" title="mostrar línea con el % que sacó Castillo en cada territorio en 1ra vuelta 2021">
+        <input type="checkbox" id="castilloToggle" style="margin:0"/>
+        <span>castillo 2021</span>
+      </label>
       <span class="spacer"></span>
       <button id="clearAll" title="quitar todos los gráficos">limpiar lienzo</button>
     </div>
@@ -342,6 +346,23 @@
   }
 
   let DB = null;
+
+  // === Baseline histórica: Pedro Castillo primera vuelta 2021 ===
+  // Se carga asincrónicamente desde ./castillo_2021.json. Si no existe, el toggle
+  // no aparece y la funcionalidad se desactiva gracefully.
+  let CASTILLO = null;
+  // % que sacó Castillo en el nodo dado (ubigeo). Retorna null si no hay dato.
+  function castilloPct(key){
+    if(!CASTILLO || !DB?.nodes?.[key]) return null;
+    const n = DB.nodes[key];
+    // __root__: usar nacional
+    if(key === ROOT) return CASTILLO.meta?.total_nacional?.pct ?? null;
+    // nivel determina de qué índice leer
+    if(n.nivel === 'departamento') return CASTILLO.depto?.[key]?.pct ?? null;
+    if(n.nivel === 'provincia')    return CASTILLO.provincia?.[key]?.pct ?? null;
+    if(n.nivel === 'distrito')     return CASTILLO.distrito?.[key]?.pct ?? null;
+    return null;
+  }
   const state = {
     places: [ROOT],
     yMode: 'pct',
@@ -352,7 +373,8 @@
     drillProv: null,
     castPickerOpen: false,
     snapsInactive: new Set(),
-    duelos: []
+    duelos: [],
+    showCastillo: false  // línea baseline 2021
   };
 
   // ---------- persistencia ----------
@@ -364,6 +386,7 @@
     if(Array.isArray(saved.cast)) state.cast = saved.cast;
     if(Array.isArray(saved.snapsInactive)) state.snapsInactive = new Set(saved.snapsInactive);
     if(Array.isArray(saved.duelos)) state.duelos = saved.duelos;
+    if(typeof saved.showCastillo==='boolean') state.showCastillo = saved.showCastillo;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -372,7 +395,8 @@
       xMode: state.xMode,
       cast: state.cast,
       snapsInactive: [...state.snapsInactive],
-      duelos: state.duelos
+      duelos: state.duelos,
+      showCastillo: state.showCastillo
     })); }catch(e){}
   }
 
@@ -759,6 +783,24 @@
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
     `;
 
+    const frame = `
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+    `;
+
+    // línea Castillo 2021 (baseline histórica) — solo si está activada, modo %, y hay dato
+    let castilloSVG = '';
+    if(state.showCastillo && mode==='pct'){
+      const cPct = castilloPct(key);
+      if(cPct != null && cPct <= yMax && cPct >= 0){
+        const yC = yOf(cPct);
+        castilloSVG = `
+          <line x1="${padL}" y1="${yC}" x2="${W-padR}" y2="${yC}" stroke="#a04040" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.55"/>
+          <text x="${W-padR-4}" y="${yC-3}" text-anchor="end" font-size="9" fill="#a04040" opacity="0.85" font-style="italic">castillo 2021 · ${cPct.toFixed(1)}%</text>
+        `;
+      }
+    }
+
     const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
     // hit zones: en modo snap son uniformes; en modo avance se basan en puntos medios
     let hits = '';
@@ -782,7 +824,7 @@
     }
 
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" data-place="${key}">
-      ${yTicksSVG}${xTicksSVG}${frame}${linesSVG}${crosshair}${hits}
+      ${yTicksSVG}${xTicksSVG}${frame}${castilloSVG}${linesSVG}${crosshair}${hits}
     </svg>`;
   }
 
@@ -850,10 +892,11 @@
         </div>`;
       }
 
-      // peso electoral del nodo (si es depto o extranjero)
+      // peso electoral del nodo (solo para deptos y extranjero, no el root)
       const pW = padronWeight(key);
       const pEl = padronOf(key);
-      const padronLine = pW != null ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(1)}%</b> nac.</span>` : '';
+      const showPadron = key !== ROOT && pW != null;
+      const padronLine = showPadron ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(1)}%</b> nac.</span>` : '';
 
       return `<div class="card" data-key="${key}">
         <div class="card-head">
@@ -1300,6 +1343,71 @@
     cards.push({ title: 'completados',
       value: `${depsCompletos} / ${depsPeru.length} <span class="info-sub" style="display:inline">deptos</span>`,
       sub: `${distCompletos} / ${distNodes.length} distritos al 100%` });
+
+    // === CASTILLO 2021 como baseline ===
+    // Para cada candidatx del cast: ¿qué tanto coincide su mapa territorial con el de Castillo?
+    // Métrica: correlación simple entre % por depto del candidatx actual y % de Castillo 2021.
+    if(CASTILLO){
+      // Acumular por candidatx: suma ponderada de "% castillo × % candidato" por depto
+      // y ranking de "coincidencia territorial".
+      // También: % de los deptos donde Castillo ganó (top 12) que ahora gana cada candidatx.
+      const castilloDepsMap = CASTILLO.depto || {};
+      // Deptos donde Castillo ganó ≥30% (frontera andina + sur)
+      const castilloStrongholds = Object.entries(castilloDepsMap)
+        .filter(([k,d]) => d.pct >= 30 && DB.nodes[k])  // solo deptos que tenemos
+        .sort((a,b) => b[1].pct - a[1].pct);
+      const nStrongholds = castilloStrongholds.length;
+
+      if(nStrongholds > 0){
+        // Contar quién lidera cada stronghold de Castillo ahora
+        const ganaEnStrongholds = {};
+        for(const [k, _] of castilloStrongholds){
+          const vs = DB.data[k]?.[lastI]?.votes || {};
+          let best=null, bv=-1;
+          for(const [c, v] of Object.entries(vs)){
+            const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+            if(v > bv){ bv = v; best = c; }
+          }
+          if(best){ ganaEnStrongholds[best] = (ganaEnStrongholds[best] || 0) + 1; }
+        }
+        // Candidatx que más hereda los strongholds
+        const rankHerederos = Object.entries(ganaEnStrongholds).sort((a,b)=>b[1]-a[1]);
+        if(rankHerederos.length > 0){
+          const [topCode, topCount] = rankHerederos[0];
+          const topPc = (topCount/nStrongholds*100).toFixed(0);
+          cards.push({ title: 'heredero del voto castillo',
+            value: `<span style="color:${colorForCastCode(topCode)}">${displayName(topCode).split(' ').slice(-2).join(' ')}</span>`,
+            sub: `gana en ${topCount} de ${nStrongholds} deptos donde Castillo sacó ≥30% (${topPc}%)` });
+        }
+
+        // Para Sánchez Palomino específicamente (o el candidatx "heredero izquierdista" en el cast)
+        // calculamos qué % de voto está capturando vs el que tenía Castillo
+        // Tomamos el % de Castillo en los strongholds (suma de votos Castillo ahí / suma válidos ahí)
+        // y lo comparamos con el % actual del candidato "heredero" en esos mismos deptos
+        if(rankHerederos.length > 0 && state.cast.includes(rankHerederos[0][0])){
+          const heredero = rankHerederos[0][0];
+          // votos actuales del heredero en strongholds
+          let vHered=0, totV=0;
+          let vCastillo2021=0, totV2021=0;
+          for(const [k, d21] of castilloStrongholds){
+            const vs = DB.data[k]?.[lastI]?.votes || {};
+            for(const c in vs){
+              const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+              totV += vs[c];
+              if(c === heredero) vHered += vs[c];
+            }
+            vCastillo2021 += d21.v;
+            totV2021 += d21.t;
+          }
+          const pcHered = totV>0 ? vHered/totV*100 : 0;
+          const pcCast21 = totV2021>0 ? vCastillo2021/totV2021*100 : 0;
+          const delta = pcHered - pcCast21;
+          cards.push({ title: 'herencia en strongholds de castillo',
+            value: `${pcHered.toFixed(1)}% vs ${pcCast21.toFixed(1)}%`,
+            sub: `${displayName(heredero).split(' ').slice(-1)[0]} ahora vs Castillo 2021 · ${delta>=0?'+':''}${delta.toFixed(1)}pp` });
+        }
+      }
+    }
     if(extranjero){
       // contar continentes / países / ciudades del extranjero
       const continentes = (DB.nodes[extranjero.key]?.children || []).length;
@@ -1668,6 +1776,12 @@
       if(state.places.length===0) state.places = [ROOT];
       persist();
 
+      // intentar cargar baseline Castillo 2021 (opcional — si no existe, toggle no aparece)
+      try{
+        const r = await fetch('./castillo_2021.json', {cache:'no-store'});
+        if(r.ok) CASTILLO = await r.json();
+      }catch(e){ /* sin baseline, ok */ }
+
       document.getElementById('status').style.display='none';
       document.getElementById('app').style.display='';
 
@@ -1690,6 +1804,20 @@
       });
       document.querySelector(`#xModeBox button[data-xmode="${state.xMode}"]`).classList.add('act');
       document.querySelectorAll('#xModeBox button').forEach(b=>{ if(b.dataset.xmode!==state.xMode) b.classList.remove('act'); });
+
+      // Castillo toggle: mostrar solo si hay data
+      if(CASTILLO){
+        const wrap = document.getElementById('castilloToggleWrap');
+        wrap.style.display = 'inline-flex';
+        const cb = document.getElementById('castilloToggle');
+        cb.checked = state.showCastillo;
+        cb.onchange = () => {
+          state.showCastillo = cb.checked;
+          persist();
+          renderGrid();
+          renderInforme();
+        };
+      }
       document.getElementById('clearAll').onclick = () => {
         if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
           state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos();

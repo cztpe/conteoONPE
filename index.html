@@ -38,6 +38,23 @@
   .snap[data-ts]{cursor:pointer}
   .snap[data-ts]:hover{border-color:var(--accent);color:var(--accent)}
 
+  /* movements */
+  .movements{border:1px solid var(--line);background:#fff;margin-bottom:14px;border-left:3px solid var(--accent)}
+  .movements h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .movements h2 .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
+  .movements ul{list-style:none;margin:0;padding:0}
+  .movements li{padding:7px 14px;border-bottom:1px solid var(--line);font-size:12px;display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+  .movements li:last-child{border-bottom:0}
+  .movements .mv-icon{display:inline-block;width:14px;flex-shrink:0;font-family:'Fira Code',monospace;font-size:14px;font-weight:500;text-align:center}
+  .movements .mv-txt{flex:1}
+  .movements .mv-txt b{font-weight:500;color:var(--fg)}
+  .mv-flip{color:var(--accent)}
+  .mv-up{color:var(--accent)}
+  .mv-down{color:var(--down)}
+  .mv-margin{color:var(--muted)}
+  .mv-avance{color:var(--muted)}
+  .mv-empty{padding:12px 14px;color:var(--muted);font-style:italic;font-size:11px}
+
   /* informe */
   .informe{border:1px solid var(--line);background:#fff;margin-bottom:14px}
   .informe h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
@@ -189,6 +206,11 @@
 
   <div id="app" style="display:none">
     <div class="snaps" id="snaps"></div>
+
+    <div class="movements" id="movements" style="display:none">
+      <h2>movimientos <span class="meta" id="movMeta">—</span></h2>
+      <ul id="movList"></ul>
+    </div>
 
     <div class="informe">
       <h2>informe <span class="meta" id="informeMeta">—</span></h2>
@@ -452,11 +474,11 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderInforme(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos();
     });
     document.getElementById('snapsAll').onclick = () => {
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderInforme(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos();
     };
   }
   function renderLegend(){
@@ -477,7 +499,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements();
         return;
       }
       const code = ln.dataset.code;
@@ -777,6 +799,135 @@
       box.style.display='none';
       persist(); renderGrid(); renderBrowser(); renderDuelos();
     });
+  }
+
+  // ---------- movements detector ----------
+  function detectMovements(){
+    const aIdx = activeIndices();
+    if(aIdx.length < 2) return null;
+    const i0 = aIdx[aIdx.length-2];
+    const i1 = aIdx[aIdx.length-1];
+    const events = [];
+
+    // helper: líder absoluto del nodo (incluye blanco/nulo)
+    function overallLeader(key, idx){
+      const v = DB.data[key]?.[idx]?.votes || {};
+      let best=null, bv=-1;
+      for(const [code,val] of Object.entries(v)){
+        if(val>bv){bv=val; best=code;}
+      }
+      return best;
+    }
+    function formatLeader(code){
+      const c = candByCode(code);
+      if(!c) return code;
+      if(c.agr==='VOTOS EN BLANCO') return 'voto blanco';
+      if(c.agr==='VOTOS NULOS') return 'voto nulo';
+      return displayName(code);
+    }
+    function natRanking(i){
+      const nac = DB.data[ROOT]?.[i]?.votes || {};
+      const arr = [];
+      for(const [code,v] of Object.entries(nac)){
+        const c = candByCode(code);
+        if(!c || isBN(c.agr)) continue;
+        arr.push({code, v});
+      }
+      arr.sort((a,b)=>b.v-a.v);
+      return arr.map(x=>x.code);
+    }
+
+    // 1. Flips departamentales (líder absoluto cambió)
+    const deps = DB.nodes[ROOT].children;
+    for(const depKey of deps){
+      const l0 = overallLeader(depKey, i0);
+      const l1 = overallLeader(depKey, i1);
+      if(l0 && l1 && l0 !== l1){
+        events.push({
+          kind: 'flip',
+          score: 20,
+          text: `<b>${DB.nodes[depKey].nombre}</b>: <b>${formatLeader(l1)}</b> tomó la delantera (antes ${formatLeader(l0)})`
+        });
+      }
+    }
+
+    // 2. Cambios de puesto nacional para candidatxs del cast
+    const rk0 = natRanking(i0);
+    const rk1 = natRanking(i1);
+    for(const code of state.cast){
+      const c = candByCode(code);
+      if(!c || isBN(c.agr)) continue;
+      const r0 = rk0.indexOf(code)+1;
+      const r1 = rk1.indexOf(code)+1;
+      if(r0>0 && r1>0 && r0 !== r1){
+        const improved = r1 < r0;
+        const mag = Math.abs(r1-r0);
+        events.push({
+          kind: improved ? 'up' : 'down',
+          score: 6 + mag*2,
+          text: `<b>${displayName(code)}</b> ${improved?'subió':'bajó'} del puesto ${r0} al <b>${r1}</b> a nivel nacional`
+        });
+      }
+    }
+
+    // 3. Cambios de margen entre pares consecutivos del top 5 (en pp)
+    const top5 = rk1.slice(0,5);
+    const totV0 = totalValidVotesAt(ROOT, i0);
+    const totV1 = totalValidVotesAt(ROOT, i1);
+    for(let i=0; i<top5.length-1; i++){
+      const a = top5[i], b = top5[i+1];
+      const pctA0 = totV0 ? (votesAt(ROOT,a,i0)||0)/totV0*100 : 0;
+      const pctB0 = totV0 ? (votesAt(ROOT,b,i0)||0)/totV0*100 : 0;
+      const pctA1 = totV1 ? (votesAt(ROOT,a,i1)||0)/totV1*100 : 0;
+      const pctB1 = totV1 ? (votesAt(ROOT,b,i1)||0)/totV1*100 : 0;
+      const m0 = pctA0 - pctB0;
+      const m1 = pctA1 - pctB1;
+      const delta = m1 - m0;
+      if(Math.abs(delta) >= 0.08){
+        const dir = delta > 0 ? 'se amplió' : 'se redujo';
+        events.push({
+          kind: 'margin',
+          score: Math.abs(delta)*8,
+          text: `margen de <b>${displayName(a).split(' ').pop()}</b> sobre <b>${displayName(b).split(' ').pop()}</b> ${dir} <b>${Math.abs(delta).toFixed(2)}pp</b>`
+        });
+      }
+    }
+
+    // 4. Saltos de avance por depto (>= 3pp)
+    for(const depKey of deps){
+      const av0 = DB.data[depKey]?.[i0]?.av || 0;
+      const av1 = DB.data[depKey]?.[i1]?.av || 0;
+      const delta = av1 - av0;
+      if(delta >= 3){
+        events.push({
+          kind: 'avance',
+          score: delta*0.8,
+          text: `avance en <b>${DB.nodes[depKey].nombre}</b> saltó <b>+${delta.toFixed(1)}pp</b> (${av0.toFixed(1)}% → ${av1.toFixed(1)}%)`
+        });
+      }
+    }
+
+    events.sort((a,b)=>b.score-a.score);
+    return {i0, i1, events: events.slice(0,6)};
+  }
+
+  function renderMovements(){
+    const panel = document.getElementById('movements');
+    const meta  = document.getElementById('movMeta');
+    const list  = document.getElementById('movList');
+    const result = detectMovements();
+    if(!result){ panel.style.display='none'; return; }
+    panel.style.display = '';
+    const s0 = DB.snapshots[result.i0], s1 = DB.snapshots[result.i1];
+    meta.textContent = `s${result.i0} → s${result.i1} · ${s0.label} → ${s1.label}`;
+    if(result.events.length === 0){
+      list.innerHTML = '<div class="mv-empty">sin cambios notables entre estos snapshots</div>';
+      return;
+    }
+    const icons = {flip:'↔', up:'↑', down:'↓', margin:'⇄', avance:'→'};
+    list.innerHTML = result.events.map(e =>
+      `<li><span class="mv-icon mv-${e.kind}">${icons[e.kind]}</span><span class="mv-txt">${e.text}</span></li>`
+    ).join('');
   }
 
   // ---------- informe ----------
@@ -1239,6 +1390,7 @@
       };
 
       renderSnaps();
+      renderMovements();
       renderInforme();
       renderLegend();
       renderCastPicker();

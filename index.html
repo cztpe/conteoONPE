@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>onpe · top 7 · seguimiento por lugar</title>
+<title>onpe · seguimiento por lugar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -13,8 +13,9 @@
     --line:#ececec; --line-strong:#d0d0d0;
     --accent:#5a7a3a;
     --down:#b45a1f;
-    /* cast colors (estables, top 7) */
+    /* cast colors (hasta 12) */
     --k1:#c17a3a; --k2:#a04040; --k3:#5a7a3a; --k4:#3a6a8a; --k5:#6a3a7a; --k6:#8a6a2a; --k7:#3a7a6a;
+    --k8:#7a5a3a; --k9:#5a5a5a; --k10:#9a3a6a; --k11:#2a8a3a; --k12:#8a2a6a;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);font-family:'Fira Code',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5}
@@ -43,6 +44,26 @@
   .leg .dot{width:11px;height:11px;display:inline-block;flex-shrink:0}
   .leg .nm{white-space:nowrap}
   .leg .ag{color:var(--muted);font-size:10px}
+  .leg .rm{font-size:10px;color:var(--faint);margin-left:4px}
+  .leg:hover .rm{color:var(--down)}
+  .leg-add{display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px dashed var(--line-strong);cursor:pointer;color:var(--muted);font-size:11px}
+  .leg-add:hover{border-color:var(--accent);color:var(--accent);border-style:solid}
+
+  /* cast picker */
+  .castpick{margin-bottom:14px;border:1px solid var(--line);background:#fafafa;padding:10px 14px;display:none}
+  .castpick.on{display:block}
+  .castpick h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
+  .castpick .cp-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+  .cp-chip{font-size:11px;padding:3px 8px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--fg)}
+  .cp-chip:hover{border-color:var(--accent)}
+  .cp-chip .dot{width:8px;height:8px;display:inline-block;background:var(--faint)}
+  .cp-chip.on{border-color:transparent;color:#fff;background:var(--cpc,var(--accent))}
+  .cp-chip.on .dot{background:rgba(255,255,255,.6)}
+  .cp-chip.on:hover{background:#fff;color:var(--down);border-color:var(--down)}
+  .cp-chip.on:hover .dot{background:var(--down)}
+  .cp-chip.disabled{opacity:0.4;cursor:not-allowed}
+  .cp-chip.disabled:hover{border-color:var(--line-strong)}
+  .castpick .hint{font-size:10px;color:var(--muted);margin-top:4px}
 
   /* controls */
   .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
@@ -119,14 +140,19 @@
 <body>
 <div class="wrap">
   <a class="back" href="../">← onpe/</a>
-  <h1>onpe · top 7 por lugar</h1>
-  <div class="sub">seguimiento de lxs 7 primerxs candidatxs nacionales · agrega lugares para generar gráficos · elecciones 2026</div>
+  <h1>onpe · seguimiento por lugar</h1>
+  <div class="sub">escoge candidatxs y lugares · cada lugar genera un gráfico · elecciones 2026</div>
 
   <div class="status" id="status">descubriendo snapshots…</div>
 
   <div id="app" style="display:none">
     <div class="snaps" id="snaps"></div>
     <div class="legend" id="legend"></div>
+    <div class="castpick" id="castpick">
+      <h3>candidatxs disponibles · click para añadir al cast (máx 12)</h3>
+      <div class="cp-chips" id="cpChips"></div>
+      <div class="hint">lxs seleccionadxs aparecerán como líneas en todos los gráficos · los colores se asignan en orden de selección</div>
+    </div>
 
     <div class="controls">
       <div class="picker">
@@ -176,9 +202,10 @@
     places: [ROOT],
     yMode: 'pct',
     highlighted: null,
-    topN: [],
-    drillDep: null,    // ubigeo del depto expandido
-    drillProv: null    // ubigeo de la provincia expandida
+    cast: [],           // codes escogidos por el usuarix
+    drillDep: null,
+    drillProv: null,
+    castPickerOpen: false
   };
 
   // ---------- persistencia ----------
@@ -186,9 +213,10 @@
     const saved = JSON.parse(localStorage.getItem(STORE) || '{}');
     if(Array.isArray(saved.places) && saved.places.length) state.places = saved.places;
     if(saved.yMode) state.yMode = saved.yMode;
+    if(Array.isArray(saved.cast)) state.cast = saved.cast;
   }catch(e){}
   function persist(){
-    try{ localStorage.setItem(STORE, JSON.stringify({places: state.places, yMode: state.yMode})); }catch(e){}
+    try{ localStorage.setItem(STORE, JSON.stringify({places: state.places, yMode: state.yMode, cast: state.cast})); }catch(e){}
   }
 
   // ---------- descubrimiento ----------
@@ -268,9 +296,9 @@
   const isBN = agr => agr==='VOTOS EN BLANCO' || agr==='VOTOS NULOS';
   const candByCode = c => DB.candidatos_master.find(x=>x.code===c);
   const shortName = nm => { if(!nm) return ''; const p=nm.trim().split(/\s+/); return p.length<=2?nm:p[0]+' '+p[p.length-2]; };
-  const K_COLORS = ['#c17a3a','#a04040','#5a7a3a','#3a6a8a','#6a3a7a','#8a6a2a','#3a7a6a'];
-  const CAST_SIZE = 7;
-  // overrides manuales de nombre para mostrar (por código de agrupación)
+  const K_COLORS = ['#c17a3a','#a04040','#5a7a3a','#3a6a8a','#6a3a7a','#8a6a2a','#3a7a6a','#7a5a3a','#5a5a5a','#9a3a6a','#2a8a3a','#8a2a6a'];
+  const CAST_MAX = 12;
+  const CAST_DEFAULT_SIZE = 7;
   const NAME_OVERRIDES = {
     '8':  'Keiko Fujimori',
     '35': 'Rafael López Aliaga',
@@ -286,7 +314,7 @@
     return c ? shortName(c.cand || c.agr) : code;
   }
 
-  function computeTopN(){
+  function defaultCast(){
     const i = last();
     const nac = DB.data[ROOT]?.[i]?.votes || {};
     const arr = [];
@@ -296,7 +324,16 @@
       arr.push({code,v});
     }
     arr.sort((a,b)=>b.v-a.v);
-    return arr.slice(0,CAST_SIZE).map(x=>x.code);
+    return arr.slice(0, CAST_DEFAULT_SIZE).map(x=>x.code);
+  }
+  // lista de candidatxs "reales" (sin blanco/nulo) ordenada por votos nacionales últimos
+  function allCandsRanked(){
+    const i = last();
+    const nac = DB.data[ROOT]?.[i]?.votes || {};
+    return DB.candidatos_master
+      .filter(c => !isBN(c.agr))
+      .map(c => ({code: c.code, cand: c, v: nac[c.code] || 0}))
+      .sort((a,b) => b.v - a.v);
   }
 
   function nodePath(key){
@@ -328,16 +365,61 @@
   }
   function renderLegend(){
     const el = document.getElementById('legend');
-    el.innerHTML = state.topN.map((code,idx)=>{
+    const chips = state.cast.map((code,idx)=>{
       const c = candByCode(code);
+      if(!c) return '';
       const dim = state.highlighted && state.highlighted!==code ? 'dim' : '';
       const act = state.highlighted===code ? 'act' : '';
-      return `<div class="leg ${dim} ${act}" data-code="${code}"><span class="dot" style="background:${K_COLORS[idx]}"></span><span class="nm">${displayName(code)}</span><span class="ag">${c.agr.toLowerCase()}</span></div>`;
+      return `<div class="leg ${dim} ${act}" data-code="${code}" title="click: resaltar · × quita del cast"><span class="dot" style="background:${K_COLORS[idx]}"></span><span class="nm">${displayName(code)}</span><span class="rm" data-rm="${code}">×</span></div>`;
     }).join('');
-    el.querySelectorAll('.leg').forEach(ln=>ln.onclick=()=>{
-      const code=ln.dataset.code;
+    const addBtn = state.cast.length < CAST_MAX
+      ? `<div class="leg-add" id="legAdd">${state.castPickerOpen?'cerrar':'+ añadir candidatx'}</div>`
+      : `<div class="leg-add" style="opacity:0.5;cursor:default" title="máximo ${CAST_MAX}">cast completo</div>`;
+    el.innerHTML = chips + addBtn;
+    el.querySelectorAll('.leg').forEach(ln=>ln.onclick=(ev)=>{
+      if(ev.target.classList.contains('rm')){
+        const code = ev.target.dataset.rm;
+        state.cast = state.cast.filter(x=>x!==code);
+        if(state.highlighted===code) state.highlighted = null;
+        persist(); renderLegend(); renderCastPicker(); renderGrid();
+        return;
+      }
+      const code = ln.dataset.code;
       state.highlighted = state.highlighted===code ? null : code;
       renderLegend(); renderGrid();
+    });
+    const ab = document.getElementById('legAdd');
+    if(ab) ab.onclick = () => {
+      state.castPickerOpen = !state.castPickerOpen;
+      document.getElementById('castpick').classList.toggle('on', state.castPickerOpen);
+      renderLegend(); renderCastPicker();
+    };
+    document.getElementById('castpick').classList.toggle('on', state.castPickerOpen);
+  }
+
+  function renderCastPicker(){
+    if(!state.castPickerOpen) return;
+    const box = document.getElementById('cpChips');
+    const all = allCandsRanked();
+    const full = state.cast.length >= CAST_MAX;
+    box.innerHTML = all.map(({code,cand,v}) => {
+      const idx = state.cast.indexOf(code);
+      const on = idx >= 0;
+      const disabled = !on && full;
+      const color = on ? K_COLORS[idx] : '';
+      const pct = (() => {
+        const t = totalValidVotesAt(ROOT, last());
+        return t>0 ? (v/t*100).toFixed(1)+'%' : '—';
+      })();
+      return `<span class="cp-chip ${on?'on':''} ${disabled?'disabled':''}" data-code="${code}" style="--cpc:${color}" title="${cand.agr.toLowerCase()} · ${pct} nacional"><span class="dot"></span>${displayName(code)}</span>`;
+    }).join('');
+    box.querySelectorAll('.cp-chip').forEach(el => el.onclick = () => {
+      if(el.classList.contains('disabled')) return;
+      const code = el.dataset.code;
+      const i = state.cast.indexOf(code);
+      if(i>=0) state.cast.splice(i,1);
+      else state.cast.push(code);
+      persist(); renderLegend(); renderCastPicker(); renderGrid();
     });
   }
 
@@ -357,7 +439,7 @@
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
     // series for all topN
-    const seriesAll = state.topN.map(code => seriesFor(key, code, mode));
+    const seriesAll = state.cast.map(code => seriesFor(key, code, mode));
 
     // y scale
     let yMax;
@@ -398,7 +480,7 @@
     // lines
     const n = DB.snapshots.length;
     const linesSVG = seriesAll.map((s,idx)=>{
-      const code = state.topN[idx];
+      const code = state.cast[idx];
       const color = K_COLORS[idx];
       const dim = state.highlighted && state.highlighted!==code;
       const op = dim ? 0.2 : 1;
@@ -432,7 +514,7 @@
   function cardFoot(key){
     const i = last();
     const prev = i>0 ? i-1 : null;
-    return `<div class="card-foot">${state.topN.map((code,idx)=>{
+    return `<div class="card-foot">${state.cast.map((code,idx)=>{
       const c = candByCode(code);
       const v = votesAt(key,code,i) || 0;
       const t = totalValidVotesAt(key,i);
@@ -457,7 +539,7 @@
   function renderGrid(){
     const el = document.getElementById('grid');
     if(state.places.length===0){
-      el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · el cast es lxs 7 primerxs a nivel nacional</div>`;
+      el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · puedes elegir hasta 12 candidatxs en la leyenda</div>`;
       return;
     }
     el.innerHTML = state.places.map(key=>{
@@ -610,7 +692,7 @@
       status.textContent = `fusionando ${files.length} snapshot(s)…`;
       const results = await fetchAll(files);
       DB = merge(results);
-      state.topN = computeTopN();
+      if(!state.cast || state.cast.length===0) state.cast = defaultCast();
       // limpiar places inválidos
       state.places = state.places.filter(k => DB.nodes[k]);
       if(state.places.length===0) state.places = [ROOT];
@@ -638,6 +720,7 @@
 
       renderSnaps();
       renderLegend();
+      renderCastPicker();
       renderGrid();
       renderBrowser();
     }catch(err){

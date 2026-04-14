@@ -183,13 +183,20 @@
   .br-section h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
   .br-section h3 b{color:var(--fg);font-weight:500}
   .br-section h3 .hint{color:var(--faint);font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px}
-  .chips{display:flex;flex-wrap:wrap;gap:4px}
-  .chip{font-size:11px;padding:4px 9px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;color:var(--fg);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11px;padding:5px 9px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;color:var(--fg);display:inline-flex;align-items:center;gap:8px;min-width:140px}
   .chip:hover{border-color:var(--accent);color:var(--accent)}
   .chip.drill{border-color:var(--fg);background:#fafafa;font-weight:500}
   .chip.added{background:var(--accent);color:#fff;border-color:var(--accent)}
   .chip.added:hover{background:#fff;color:var(--down);border-color:var(--down)}
-  .chip .x{font-size:9px;color:inherit;opacity:0.6}
+  .chip .chip-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip .chip-av{font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);flex-shrink:0}
+  .chip.added .chip-av{color:rgba(255,255,255,0.85)}
+  .chip .chip-bar{display:inline-block;width:38px;height:4px;background:#e8e8e8;position:relative;flex-shrink:0;overflow:hidden}
+  .chip .chip-bar span{position:absolute;left:0;top:0;height:100%;display:block}
+  .chip.added .chip-bar{background:rgba(255,255,255,0.25)}
+  .chip.added .chip-bar span{background:#fff !important}
+  .chip .x{font-size:10px;color:inherit;opacity:0.7;flex-shrink:0}
   .br-placeholder{font-size:11px;color:var(--muted);font-style:italic;padding:2px 0}
 
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
@@ -1298,12 +1305,21 @@
   // ---------- browser ----------
   function renderBrowser(){
     const deps = DB.nodes[ROOT].children;
+    const lastI = (() => { const a = activeIndices(); return a.length ? a[a.length-1] : last(); })();
     function chipHTML(key){
       const n = DB.nodes[key];
       const added = state.places.includes(key);
       const drill = (state.drillDep===key || state.drillProv===key);
       const cls = [added?'added':'', drill?'drill':''].filter(Boolean).join(' ');
-      return `<span class="chip ${cls}" data-key="${key}" title="${added?'click para quitar':'click para agregar'}">${n.nombre}${added?' <span class="x">×</span>':''}</span>`;
+      const av = DB.data[key]?.[lastI]?.av || 0;
+      // color del bar segun avance
+      const barCol = av>=90?'var(--accent)':av>=70?'#8aa850':av>=40?'#c5a040':'#c47040';
+      return `<span class="chip ${cls}" data-key="${key}" title="${added?'click para quitar':'click para agregar'} · avance ${av.toFixed(1)}%">
+        <span class="chip-name">${n.nombre}</span>
+        <span class="chip-av">${av.toFixed(1)}%</span>
+        <span class="chip-bar"><span style="width:${Math.min(100,av)}%;background:${barCol}"></span></span>
+        ${added?'<span class="x">×</span>':''}
+      </span>`;
     }
     document.getElementById('brDeps').innerHTML = deps.map(chipHTML).join('');
 

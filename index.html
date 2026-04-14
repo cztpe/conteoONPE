@@ -125,6 +125,19 @@
 
   .empty-hint{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line-strong);background:#fafafa}
 
+  /* duelos */
+  .duelos-section{margin-top:30px}
+  .duelos-h{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+  .duelo-creator{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:#fafafa}
+  .duelo-creator select{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line-strong);background:#fff;outline:none;max-width:260px}
+  .duelo-creator select:focus{border-color:var(--accent)}
+  .duelo-creator button{font-family:inherit;font-size:12px;padding:5px 10px;border:1px solid var(--line-strong);background:#fff;cursor:pointer}
+  .duelo-creator button:hover{border-color:var(--accent);color:var(--accent)}
+  .duelo-lead{font-size:11px;color:var(--muted);padding:0 14px 2px}
+  .duelo-lead b{font-weight:500}
+  .duelo-foot{border-top:1px solid var(--line);padding:8px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);align-items:center}
+  .duelo-foot .lead{font-weight:500}
+
   /* browser */
   .browser{margin-top:30px;border:1px solid var(--line);background:#fff}
   .browser h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -178,6 +191,19 @@
 
     <div class="grid" id="grid"></div>
 
+    <div class="duelos-section">
+      <h2 class="duelos-h">duelos · diferencia entre dos candidatxs a lo largo del tiempo</h2>
+      <div class="duelo-creator">
+        <select id="duelA"></select>
+        <span style="color:var(--muted);font-size:11px">vs</span>
+        <select id="duelB"></select>
+        <span style="color:var(--muted);font-size:11px">en</span>
+        <select id="duelPlace"></select>
+        <button id="duelAdd">+ crear duelo</button>
+      </div>
+      <div class="grid" id="duelosGrid"></div>
+    </div>
+
     <div class="browser">
       <h2>lugares disponibles · click para agregar gráfico</h2>
       <div class="br-section">
@@ -215,7 +241,8 @@
     drillDep: null,
     drillProv: null,
     castPickerOpen: false,
-    snapsInactive: new Set()   // ts de snapshots excluidos
+    snapsInactive: new Set(),
+    duelos: []   // [{a, b, place}, ...]
   };
 
   // ---------- persistencia ----------
@@ -225,13 +252,15 @@
     if(saved.yMode) state.yMode = saved.yMode;
     if(Array.isArray(saved.cast)) state.cast = saved.cast;
     if(Array.isArray(saved.snapsInactive)) state.snapsInactive = new Set(saved.snapsInactive);
+    if(Array.isArray(saved.duelos)) state.duelos = saved.duelos;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
       places: state.places,
       yMode: state.yMode,
       cast: state.cast,
-      snapsInactive: [...state.snapsInactive]
+      snapsInactive: [...state.snapsInactive],
+      duelos: state.duelos
     })); }catch(e){}
   }
 
@@ -397,11 +426,11 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderGrid();
+      persist(); renderSnaps(); renderGrid(); renderDuelos();
     });
     document.getElementById('snapsAll').onclick = () => {
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderGrid();
+      persist(); renderSnaps(); renderGrid(); renderDuelos();
     };
   }
   function renderLegend(){
@@ -422,7 +451,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos();
         return;
       }
       const code = ln.dataset.code;
@@ -620,7 +649,7 @@
     el.querySelectorAll('[data-act="rm"]').forEach(b=>b.onclick=(e)=>{
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
-      persist(); renderGrid(); renderBrowser();
+      persist(); renderGrid(); renderBrowser(); renderDuelos();
     });
 
     // tooltips por columna (hit-zone por snapshot)
@@ -715,8 +744,199 @@
       if(!state.places.includes(key)) state.places.push(key);
       document.getElementById('q').value='';
       box.style.display='none';
-      persist(); renderGrid(); renderBrowser();
+      persist(); renderGrid(); renderBrowser(); renderDuelos();
     });
+  }
+
+  // ---------- duelos ----------
+  function colorForCastCode(code){
+    const idx = state.cast.indexOf(code);
+    return idx>=0 ? K_COLORS[idx] : '#666';
+  }
+  function valueAt(place, code, oi, mode){
+    const v = votesAt(place, code, oi) || 0;
+    if(mode==='pct'){ const t = totalValidVotesAt(place, oi); return t>0 ? v/t*100 : 0; }
+    return v;
+  }
+  function buildDuelChart(duelo){
+    const W=1200, H=240;
+    const padL=64, padR=100, padT=18, padB=36;
+    const innerW = W-padL-padR, innerH = H-padT-padB;
+
+    const aIdx = activeIndices();
+    const aSnaps = aIdx.map(i => DB.snapshots[i]);
+    const n = aSnaps.length;
+    const mode = state.yMode;
+
+    // series de diferencias (A - B)
+    const diffs = aIdx.map(oi => valueAt(duelo.place, duelo.a, oi, mode) - valueAt(duelo.place, duelo.b, oi, mode));
+
+    const absMax = Math.max(...diffs.map(Math.abs), mode==='pct'?1:100);
+    const yRange = absMax * 1.15;
+    const xOf = i => n===1 ? padL + innerW/2 : padL + (i/(n-1))*innerW;
+    const zeroY = padT + innerH/2;
+    const yOf = v => zeroY - (v/yRange)*(innerH/2);
+
+    // ticks verticales
+    const nTicks = 4;
+    const yTicksSVG = [];
+    for(let t=-nTicks; t<=nTicks; t++){
+      const v = (yRange/nTicks)*t;
+      const y = yOf(v);
+      const isZero = t===0;
+      yTicksSVG.push(`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${isZero?'#888':'#f4f4f4'}" stroke-width="${isZero?1.2:1}" ${isZero?'stroke-dasharray="3,3"':''}/>
+        <text x="${padL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="${isZero?'#555':'#999'}" font-weight="${isZero?'500':'400'}">${mode==='pct'?(v>0?'+':'')+v.toFixed(1)+'pp':(v>0?'+':'')+fmtS(v)}</text>`);
+    }
+
+    // ticks horizontales
+    const xTicksSVG = aSnaps.map((s,i)=>{
+      const x = xOf(i); const oi = aIdx[i];
+      return `<text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${oi}</text>
+              <text x="${x}" y="${H-padB+22}" text-anchor="middle" font-size="8" fill="#bbb">${s.label.split(' ').slice(0,2).join(' ')}</text>`;
+    }).join('');
+
+    const ca = colorForCastCode(duelo.a), cb = colorForCastCode(duelo.b);
+    // etiquetas laterales A (arriba) B (abajo)
+    const sideLabels = `
+      <text x="${padL-6}" y="${padT+10}" text-anchor="end" font-size="9" fill="${ca}" font-weight="500">↑ ${displayName(duelo.a).split(' ')[0]}</text>
+      <text x="${padL-6}" y="${H-padB-4}" text-anchor="end" font-size="9" fill="${cb}" font-weight="500">↓ ${displayName(duelo.b).split(' ')[0]}</text>
+    `;
+
+    // línea + dots + área rellenada
+    let linesSVG='';
+    if(n===1){
+      const p = [xOf(0), yOf(diffs[0])];
+      const col = diffs[0]>=0?ca:cb;
+      linesSVG = `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${col}"/>
+                  <text x="${p[0]+8}" y="${p[1]+3}" font-size="11" fill="${col}" font-weight="500">${mode==='pct'?(diffs[0]>0?'+':'')+diffs[0].toFixed(2)+'pp':(diffs[0]>0?'+':'')+fmt(diffs[0])}</text>`;
+    } else {
+      const pts = diffs.map((v,i)=>[xOf(i),yOf(v)]);
+      // área: arriba del 0 con color A, abajo con color B
+      const areaTop = pts.map((p,i)=>{
+        const pc = (p[1]<zeroY) ? p : [p[0], zeroY]; // clip arriba
+        return i?`L${pc[0]},${pc[1]}`:`M${pc[0]},${pc[1]}`;
+      }).join(' ') + ` L${pts[pts.length-1][0]},${zeroY} L${pts[0][0]},${zeroY} Z`;
+      const areaBot = pts.map((p,i)=>{
+        const pc = (p[1]>zeroY) ? p : [p[0], zeroY];
+        return i?`L${pc[0]},${pc[1]}`:`M${pc[0]},${pc[1]}`;
+      }).join(' ') + ` L${pts[pts.length-1][0]},${zeroY} L${pts[0][0]},${zeroY} Z`;
+      // simplificación: fill por-segmento es complicado; uso un único área transparente, el signo se ve por la línea
+      const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
+      const dots = pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${diffs[i]>=0?ca:cb}"/>`).join('');
+      const endP = pts[pts.length-1];
+      const endV = diffs[diffs.length-1];
+      const endCol = endV>=0?ca:cb;
+      const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="11" fill="${endCol}" font-weight="500">${mode==='pct'?(endV>0?'+':'')+endV.toFixed(2)+'pp':(endV>0?'+':'')+fmtS(endV)}</text>`;
+      linesSVG = `<path d="${d}" fill="none" stroke="#333" stroke-width="1.6" stroke-linejoin="round"/>${dots}${endLabel}`;
+    }
+
+    const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
+    const hitW = n>1 ? innerW/(n-1) : innerW;
+    const hits = aSnaps.map((_,i) => {
+      const cx = xOf(i); const oi = aIdx[i];
+      const hx = Math.max(padL, cx - hitW/2);
+      const hw = Math.min(W-padR-hx, hitW);
+      return `<rect class="hit-duel" x="${hx}" y="${padT}" width="${hw}" height="${innerH}" fill="transparent" data-duel-a="${duelo.a}" data-duel-b="${duelo.b}" data-place="${duelo.place}" data-snap="${oi}" data-cx="${cx}" style="cursor:crosshair"/>`;
+    }).join('');
+
+    const frame = `
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+    `;
+
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      ${yTicksSVG.join('')}${xTicksSVG}${sideLabels}${frame}${linesSVG}${crosshair}${hits}
+    </svg>`;
+  }
+
+  function renderDueloCard(duelo, idx){
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+    const firstI = aIdx.length ? aIdx[0] : 0;
+    const mode = state.yMode;
+    const placeName = DB.nodes[duelo.place]?.nombre || 'PERÚ';
+    const curr = valueAt(duelo.place, duelo.a, lastI, mode) - valueAt(duelo.place, duelo.b, lastI, mode);
+    const first = valueAt(duelo.place, duelo.a, firstI, mode) - valueAt(duelo.place, duelo.b, firstI, mode);
+    const evol = curr - first;
+    const ca = colorForCastCode(duelo.a), cb = colorForCastCode(duelo.b);
+    const leader = curr>=0 ? duelo.a : duelo.b;
+    const leaderCol = curr>=0 ? ca : cb;
+    const absCurr = Math.abs(curr);
+    const absFirst = Math.abs(first);
+    const currStr = mode==='pct' ? absCurr.toFixed(2)+'pp' : fmt(Math.round(absCurr));
+    const firstStr = mode==='pct' ? absFirst.toFixed(2)+'pp' : fmt(Math.round(absFirst));
+    const evolStr = (evol>=0?'+':'') + (mode==='pct' ? evol.toFixed(2)+'pp' : fmtS(evol));
+    return `<div class="card" data-duel-idx="${idx}">
+      <div class="card-head">
+        <div class="card-title">
+          <div class="nm"><span style="color:${ca}">${displayName(duelo.a)}</span> <span style="color:var(--muted)">vs</span> <span style="color:${cb}">${displayName(duelo.b)}</span></div>
+          <div class="meta">en <b>${placeName}</b> · líder: <b style="color:${leaderCol}">${displayName(leader)}</b> por <b>${currStr}</b></div>
+        </div>
+        <div class="card-actions"><button data-act="rm-duel">×</button></div>
+      </div>
+      <div class="chart-wrap">${buildDuelChart(duelo)}</div>
+      <div class="duelo-foot">
+        <span>actual: <span class="lead" style="color:${leaderCol}">${currStr} para ${displayName(leader).split(' ')[0]}</span></span>
+        <span>inicial (s${firstI}): ${firstStr}</span>
+        <span>evolución: <b style="color:${evol>0?'var(--accent)':evol<0?'var(--down)':'var(--muted)'}">${evolStr}</b></span>
+      </div>
+    </div>`;
+  }
+
+  function renderDuelos(){
+    // rellenar selects del creador
+    const selA = document.getElementById('duelA');
+    const selB = document.getElementById('duelB');
+    const selP = document.getElementById('duelPlace');
+    const opts = state.cast.map(code => `<option value="${code}">${displayName(code)}</option>`).join('');
+    const placeOpts = state.places.map(k => `<option value="${k}">${k===ROOT?'PERÚ':DB.nodes[k].nombre}</option>`).join('');
+    selA.innerHTML = opts || '<option disabled>sin candidatxs en cast</option>';
+    selB.innerHTML = opts || '<option disabled>sin candidatxs en cast</option>';
+    selP.innerHTML = placeOpts;
+    // preselects: A=primero del cast, B=segundo
+    if(state.cast.length>=2){ selA.value = state.cast[0]; selB.value = state.cast[1]; }
+
+    const grid = document.getElementById('duelosGrid');
+    if(state.duelos.length===0){
+      grid.innerHTML = `<div class="empty-hint">aún no has creado duelos · arma uno con los selectores de arriba para ver la evolución del margen</div>`;
+    } else {
+      grid.innerHTML = state.duelos.map((d,i)=>renderDueloCard(d,i)).join('');
+      grid.querySelectorAll('[data-act="rm-duel"]').forEach(btn => btn.onclick = (e) => {
+        const card = e.target.closest('.card'); const idx = +card.dataset.duelIdx;
+        state.duelos.splice(idx,1); persist(); renderDuelos();
+      });
+      // tooltips de duelo
+      const tip = document.getElementById('tip');
+      grid.querySelectorAll('.hit-duel').forEach(hit => {
+        const sn = +hit.dataset.snap, cx = +hit.dataset.cx;
+        const place = hit.dataset.place, ca = hit.dataset.duelA, cb = hit.dataset.duelB;
+        const svg = hit.ownerSVGElement;
+        const cross = svg.querySelector('.crosshair');
+        hit.addEventListener('mouseenter', () => {
+          cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('opacity', '0.5');
+          const snap = DB.snapshots[sn]; const mode = state.yMode;
+          const va = valueAt(place, ca, sn, mode);
+          const vb = valueAt(place, cb, sn, mode);
+          const diff = va - vb;
+          const colA = colorForCastCode(ca), colB = colorForCastCode(cb);
+          const diffStr = mode==='pct' ? (diff>=0?'+':'')+diff.toFixed(2)+'pp' : (diff>=0?'+':'')+fmt(Math.round(diff));
+          const leader = diff>=0 ? ca : cb;
+          tip.innerHTML = `<div class="tt-head"><b>${DB.nodes[place]?.nombre||'PERÚ'}</b> · s${sn} · ${snap.label}</div>
+            <div class="tt-row"><span class="d" style="background:${colA}"></span><span class="nm">${displayName(ca)}</span><span class="v">${mode==='pct'?va.toFixed(2)+'%':fmt(va)}</span></div>
+            <div class="tt-row"><span class="d" style="background:${colB}"></span><span class="nm">${displayName(cb)}</span><span class="v">${mode==='pct'?vb.toFixed(2)+'%':fmt(vb)}</span></div>
+            <div class="tt-row hl"><span class="d" style="background:${diff>=0?colA:colB}"></span><span class="nm">margen (${displayName(leader).split(' ')[0]})</span><span class="v">${diffStr}</span></div>`;
+          tip.classList.add('on');
+        });
+        hit.addEventListener('mousemove', (e) => {
+          const tw=tip.offsetWidth||280, th=tip.offsetHeight||120;
+          let x=e.pageX+14, y=e.pageY+14;
+          if(x+tw>window.scrollX+window.innerWidth-8) x=e.pageX-tw-14;
+          if(y+th>window.scrollY+window.innerHeight-8) y=e.pageY-th-14;
+          tip.style.left=x+'px'; tip.style.top=y+'px';
+        });
+        hit.addEventListener('mouseleave', () => { cross.setAttribute('opacity','0'); tip.classList.remove('on'); });
+      });
+    }
   }
 
   // ---------- browser ----------
@@ -764,7 +984,7 @@
       } else if(n.nivel === 'provincia'){
         state.drillProv = (state.drillProv===key && already) ? null : key;
       }
-      persist(); renderGrid(); renderBrowser();
+      persist(); renderGrid(); renderBrowser(); renderDuelos();
     });
   }
 
@@ -792,14 +1012,25 @@
       document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
         state.yMode = b.dataset.mode;
         document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
-        persist(); renderGrid();
+        persist(); renderGrid(); renderDuelos();
       });
       document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
       document.getElementById('clearAll').onclick = () => {
         if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
-          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser();
+          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos();
         }
+      };
+
+      document.getElementById('duelAdd').onclick = () => {
+        const a = document.getElementById('duelA').value;
+        const b = document.getElementById('duelB').value;
+        const p = document.getElementById('duelPlace').value;
+        if(!a || !b || a===b){ alert('elige dos candidatxs distintxs'); return; }
+        // evitar duplicados exactos
+        if(state.duelos.some(d=>d.a===a && d.b===b && d.place===p)){ alert('ese duelo ya existe'); return; }
+        state.duelos.push({a, b, place: p});
+        persist(); renderDuelos();
       };
 
       renderSnaps();
@@ -807,6 +1038,7 @@
       renderCastPicker();
       renderGrid();
       renderBrowser();
+      renderDuelos();
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>

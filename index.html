@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>onpe · top 5 · seguimiento por lugar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#777; --faint:#aaa;
+    --line:#ececec; --line-strong:#d0d0d0;
+    --accent:#5a7a3a;
+    --down:#b45a1f;
+    /* cast colors (estables) */
+    --k1:#c17a3a; --k2:#a04040; --k3:#5a7a3a; --k4:#3a6a8a; --k5:#6a3a7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:'Fira Code',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1500px;margin:0 auto;padding:24px 22px 80px}
+  .back{font-size:12px;color:var(--muted);display:inline-block;margin-bottom:14px}
+  h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+
+  .status{padding:14px 16px;border:1px solid var(--line);background:#fafafa;color:var(--muted);font-size:12px;margin-bottom:16px}
+  .status.err{border-color:var(--down);color:var(--down);background:#fbf2ed}
+  .status code{background:#fff;padding:1px 5px;border:1px solid var(--line);font-size:11px}
+
+  .snaps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .snap{font-size:11px;padding:4px 9px;border:1px solid var(--line);background:#fff;display:flex;gap:8px;align-items:center}
+  .snap b{color:var(--accent)}
+  .snap .av{color:var(--muted);font-size:10px}
+  .snap.latest{border-color:var(--accent);background:#f6f9ef}
+
+  /* legend */
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:#fcfcfc}
+  .leg{display:flex;align-items:center;gap:8px;padding:3px 8px;border:1px solid transparent;cursor:pointer;font-size:12px}
+  .leg:hover{border-color:var(--line-strong);background:#fff}
+  .leg.dim{opacity:0.35}
+  .leg.act{border-color:var(--fg);background:#fff}
+  .leg .dot{width:11px;height:11px;display:inline-block;flex-shrink:0}
+  .leg .nm{white-space:nowrap}
+  .leg .ag{color:var(--muted);font-size:10px}
+
+  /* controls */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  .controls .picker{position:relative;flex:1;min-width:280px;max-width:520px}
+  .controls input,.controls select,.controls button{font-family:inherit;font-size:12px;padding:7px 10px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);outline:none}
+  .controls input{width:100%}
+  .controls input:focus,.controls select:focus{border-color:var(--accent)}
+  .controls button{cursor:pointer}
+  .controls button:hover{border-color:var(--accent);color:var(--accent)}
+  .controls .spacer{flex:1}
+  .controls .mode{display:inline-flex;border:1px solid var(--line-strong)}
+  .controls .mode button{border:0;border-right:1px solid var(--line-strong);padding:7px 12px}
+  .controls .mode button:last-child{border-right:0}
+  .controls .mode button.act{background:var(--accent);color:#fff}
+  .controls .mode button.act:hover{color:#fff}
+  .sug{position:absolute;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid var(--line-strong);max-height:320px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+  .sug .item{padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+  .sug .item:last-child{border-bottom:0}
+  .sug .item:hover,.sug .item.on{background:#f6f9ef;color:var(--accent)}
+  .sug .item .where{color:var(--muted);font-size:10px;text-align:right}
+  .sug .item .lvl{display:inline-block;font-size:9px;padding:1px 5px;border:1px solid var(--line-strong);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
+  .sug .empty{padding:10px;color:var(--muted);font-size:11px;text-align:center}
+
+  /* grid of charts */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column}
+  .card-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);gap:8px}
+  .card-title{display:flex;flex-direction:column;min-width:0;gap:1px}
+  .card-title .nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-title .meta{font-size:10px;color:var(--muted)}
+  .card-title .meta b{color:var(--accent)}
+  .card-actions{display:flex;gap:4px;flex-shrink:0}
+  .card-actions button{font-family:inherit;font-size:10px;padding:3px 7px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+  .card-actions button:hover{border-color:var(--down);color:var(--down)}
+  .chart-wrap{padding:8px 4px 4px;position:relative}
+  .chart-wrap svg{width:100%;height:auto;display:block}
+  .card-foot{border-top:1px solid var(--line);padding:8px 14px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10px}
+  .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-foot .cv .vn{color:var(--muted);font-variant-numeric:tabular-nums}
+  .card-foot .cv .dlt{font-size:9px;font-variant-numeric:tabular-nums}
+  .card-foot .cv .dlt.up{color:var(--accent)}
+  .card-foot .cv .dlt.down{color:var(--down)}
+  .card-foot .cv .dlt.flat{color:var(--faint)}
+
+  .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:6px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .1s}
+  .tooltip.on{opacity:1}
+  .tooltip b{color:#fff}
+
+  .empty-hint{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line-strong);background:#fafafa}
+
+  footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+  code{background:#f4f4f0;padding:1px 4px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← onpe/</a>
+  <h1>onpe · top 5 por lugar</h1>
+  <div class="sub">seguimiento de lxs 5 primerxs candidatxs nacionales · agrega lugares para generar gráficos · elecciones 2026</div>
+
+  <div class="status" id="status">descubriendo snapshots…</div>
+
+  <div id="app" style="display:none">
+    <div class="snaps" id="snaps"></div>
+    <div class="legend" id="legend"></div>
+
+    <div class="controls">
+      <div class="picker">
+        <input type="search" id="q" placeholder="buscar lugar · depto, provincia o distrito…" autocomplete="off">
+        <div class="sug" id="sug" style="display:none"></div>
+      </div>
+      <div class="mode" id="modeBox">
+        <button data-mode="pct" class="act">% válidos</button>
+        <button data-mode="votes">votos</button>
+      </div>
+      <span class="spacer"></span>
+      <button id="clearAll" title="quitar todos los gráficos">limpiar lienzo</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="tooltip" id="tip"></div>
+
+  <footer>
+    onpe · top 5 por lugar · los gráficos se guardan en tu navegador (localStorage) · autodescubrimiento de snapshots vía github api
+  </footer>
+</div>
+
+<script>
+(() => {
+  const ROOT = '__root__';
+  const STORE = 'onpe_charts_v1';
+  let DB = null;
+  const state = {
+    places: [ROOT],     // lugares con gráfico (PERÚ por defecto)
+    yMode: 'pct',
+    highlighted: null,  // código candidatx resaltado
+    top5: []            // computed
+  };
+
+  // ---------- persistencia ----------
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORE) || '{}');
+    if(Array.isArray(saved.places) && saved.places.length) state.places = saved.places;
+    if(saved.yMode) state.yMode = saved.yMode;
+  }catch(e){}
+  function persist(){
+    try{ localStorage.setItem(STORE, JSON.stringify({places: state.places, yMode: state.yMode})); }catch(e){}
+  }
+
+  // ---------- descubrimiento ----------
+  const FILE_RE = /^onpe_data_.*\.json$/i;
+  function parseLocation(){
+    const params = new URLSearchParams(location.search);
+    const override = params.get('repo');
+    const overridePath = params.get('path');
+    if(override){
+      const [owner,repo]=override.split('/');
+      let p = overridePath || location.pathname;
+      if(!p.endsWith('/')) p = p.replace(/\/[^/]*$/, '/');
+      return {owner, repo, path:p};
+    }
+    const host = location.hostname;
+    if(!host.endsWith('.github.io')) return null;
+    const owner = host.split('.')[0];
+    let path = location.pathname;
+    if(path.endsWith('.html')) path = path.replace(/\/[^/]+$/, '/');
+    if(!path.endsWith('/')) path += '/';
+    const userRepo = {owner, repo: host, path};
+    const segs = path.split('/').filter(Boolean);
+    let projRepo = null;
+    if(segs.length>=1) projRepo = {owner, repo: segs[0], path: '/' + segs.slice(1).join('/') + (segs.length>1?'/':'')};
+    return {userRepo, projRepo};
+  }
+  async function listViaGithub({owner,repo,path}){
+    const api = `https://api.github.com/repos/${owner}/${repo}/contents${path}`;
+    const r = await fetch(api, {headers:{'Accept':'application/vnd.github+json'}});
+    if(!r.ok) throw new Error(`github api ${r.status}`);
+    const items = await r.json();
+    if(!Array.isArray(items)) throw new Error('respuesta inesperada');
+    return items.filter(it=>it.type==='file'&&FILE_RE.test(it.name)).map(it=>({name:it.name,url:it.download_url}));
+  }
+  async function discover(){
+    const status = document.getElementById('status');
+    const params = new URLSearchParams(location.search);
+    const manifestUrl = params.get('manifest') || './manifest.json';
+    try{
+      const r = await fetch(manifestUrl+'?t='+Date.now(),{cache:'no-store'});
+      if(r.ok){ const arr = await r.json(); if(Array.isArray(arr)&&arr.length){ status.textContent=`manifest: ${arr.length} snapshot(s)`; return arr.map(n=>({name:n,url:n})); } }
+    }catch(e){}
+    const loc = parseLocation();
+    if(loc){
+      if(loc.owner){ status.textContent=`github api: ${loc.owner}/${loc.repo}${loc.path}`; return await listViaGithub(loc); }
+      try{ status.textContent=`github api: ${loc.userRepo.owner}/${loc.userRepo.repo}${loc.userRepo.path}`; const list=await listViaGithub(loc.userRepo); if(list.length) return list; }catch(e){}
+      if(loc.projRepo){ try{ status.textContent=`github api: ${loc.projRepo.owner}/${loc.projRepo.repo}${loc.projRepo.path}`; const list=await listViaGithub(loc.projRepo); if(list.length) return list; }catch(e){} }
+    }
+    throw new Error('no encontré snapshots. sube archivos con el patrón onpe_data_*.json en la misma carpeta del repo.');
+  }
+  async function fetchAll(files){
+    const results = await Promise.all(files.map(async f=>{
+      const url = f.url.startsWith('http') ? f.url : (f.url+'?t='+Date.now());
+      const r = await fetch(url,{cache:'no-store'});
+      if(!r.ok) throw new Error(`${f.name}: HTTP ${r.status}`);
+      return {name:f.name, data: await r.json()};
+    }));
+    results.sort((a,b)=>(a.data.snapshot?.ts||'').localeCompare(b.data.snapshot?.ts||''));
+    return results;
+  }
+  function merge(results){
+    const seen=new Set(); const clean=[];
+    for(const r of results){ const ts=r.data.snapshot?.ts; if(!ts||seen.has(ts)) continue; seen.add(ts); clean.push(r); }
+    if(!clean.length) throw new Error('sin snapshots válidos');
+    const base = clean[0].data;
+    const snapshots = clean.map((r,i)=>({id:i,ts:r.data.snapshot.ts,label:r.data.snapshot.label,avance:r.data.snapshot.avance,_file:r.name}));
+    const data = {};
+    for(const k in base.nodes) data[k] = clean.map(r=>r.data.data[k] || {av:0,part:0,cont:0,total:0,votes:{}});
+    return {snapshots, candidatos_master: base.candidatos_master, nodes: base.nodes, data};
+  }
+
+  // ---------- helpers ----------
+  const last = () => DB.snapshots.length - 1;
+  const fmt = n => (n==null||isNaN(n))?'—':Number(n).toLocaleString('es-PE');
+  const fmtS = n => { if(n==null||isNaN(n)) return '—'; n=Number(n); if(Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'k'; return String(n); };
+  const pct = n => (n==null||isNaN(n))?'—':Number(n).toFixed(1)+'%';
+  const isBN = agr => agr==='VOTOS EN BLANCO' || agr==='VOTOS NULOS';
+  const candByCode = c => DB.candidatos_master.find(x=>x.code===c);
+  const shortName = nm => { if(!nm) return ''; const p=nm.trim().split(/\s+/); return p.length<=2?nm:p[0]+' '+p[p.length-2]; };
+  const K_COLORS = ['#c17a3a','#a04040','#5a7a3a','#3a6a8a','#6a3a7a'];
+
+  function computeTop5(){
+    const i = last();
+    const nac = DB.data[ROOT]?.[i]?.votes || {};
+    const arr = [];
+    for(const [code,v] of Object.entries(nac)){
+      const c = candByCode(code);
+      if(!c || isBN(c.agr)) continue;
+      arr.push({code,v});
+    }
+    arr.sort((a,b)=>b.v-a.v);
+    return arr.slice(0,5).map(x=>x.code);
+  }
+
+  function nodePath(key){
+    const chain=[]; let k=key;
+    while(k!=null){ chain.unshift(k); k = DB.nodes[k]?.parent; }
+    return chain.slice(1).map(x=>DB.nodes[x].nombre); // skip ROOT for display
+  }
+  function votesAt(key,code,i){ return DB.data[key]?.[i]?.votes?.[code] ?? null; }
+  function totalValidVotesAt(key,i){
+    const v = DB.data[key]?.[i]?.votes; if(!v) return 0;
+    let t=0; for(const code in v){ const c=candByCode(code); if(c && !isBN(c.agr)) t+=v[code]; }
+    return t;
+  }
+  function seriesFor(key,code,mode){
+    return DB.snapshots.map((_,i)=>{
+      const v = votesAt(key,code,i) ?? 0;
+      if(mode==='pct'){
+        const t = totalValidVotesAt(key,i);
+        return t>0 ? v/t*100 : 0;
+      }
+      return v;
+    });
+  }
+
+  // ---------- render snaps + legend ----------
+  function renderSnaps(){
+    const el = document.getElementById('snaps');
+    el.innerHTML = DB.snapshots.map((s,i)=>`<div class="snap ${i===last()?'latest':''}" title="${s.ts} · ${s._file||''}">s${i} · <b>${s.label}</b> <span class="av">${pct(s.avance)}</span></div>`).join('');
+  }
+  function renderLegend(){
+    const el = document.getElementById('legend');
+    el.innerHTML = state.top5.map((code,idx)=>{
+      const c = candByCode(code);
+      const dim = state.highlighted && state.highlighted!==code ? 'dim' : '';
+      const act = state.highlighted===code ? 'act' : '';
+      return `<div class="leg ${dim} ${act}" data-code="${code}"><span class="dot" style="background:${K_COLORS[idx]}"></span><span class="nm">${shortName(c.cand||c.agr)}</span><span class="ag">${c.agr.toLowerCase()}</span></div>`;
+    }).join('');
+    el.querySelectorAll('.leg').forEach(ln=>ln.onclick=()=>{
+      const code=ln.dataset.code;
+      state.highlighted = state.highlighted===code ? null : code;
+      renderLegend(); renderGrid();
+    });
+  }
+
+  // ---------- chart SVG ----------
+  function niceMax(v){
+    if(v<=5) return 5;
+    if(v<=10) return 10;
+    if(v<=20) return 20;
+    if(v<=35) return 35;
+    if(v<=50) return 50;
+    if(v<=75) return 75;
+    return 100;
+  }
+  function buildChart(key, mode){
+    const W=460, H=240;
+    const padL=44, padR=66, padT=14, padB=32;
+    const innerW = W-padL-padR, innerH = H-padT-padB;
+
+    // series for all top5
+    const seriesAll = state.top5.map(code => seriesFor(key, code, mode));
+
+    // y scale
+    let yMax;
+    if(mode==='pct'){
+      const m = Math.max(...seriesAll.flat(), 1);
+      yMax = niceMax(Math.ceil(m*1.05));
+    } else {
+      yMax = Math.max(...seriesAll.flat(), 1);
+      yMax = Math.ceil(yMax*1.05);
+    }
+    const xOf = i => {
+      const n = DB.snapshots.length;
+      if(n===1) return padL + innerW/2;
+      return padL + (i/(n-1))*innerW;
+    };
+    const yOf = v => padT + innerH - (v/yMax)*innerH;
+
+    // y ticks
+    const nTicks = 5;
+    const yTicks = [];
+    for(let i=0;i<=nTicks;i++){
+      const v = (yMax/nTicks)*i;
+      yTicks.push({v, y: yOf(v)});
+    }
+    const yTicksSVG = yTicks.map(t=>`
+      <line x1="${padL}" y1="${t.y}" x2="${W-padR}" y2="${t.y}" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(0)+'%':fmtS(t.v)}</text>
+    `).join('');
+
+    // x ticks
+    const xTicksSVG = DB.snapshots.map((s,i)=>{
+      const x = xOf(i);
+      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#f6f6f6" stroke-width="1"/>
+              <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${i}</text>
+              <text x="${x}" y="${H-padB+22}" text-anchor="middle" font-size="8" fill="#bbb">${s.label.split(' ').slice(0,2).join(' ')}</text>`;
+    }).join('');
+
+    // lines
+    const n = DB.snapshots.length;
+    const linesSVG = seriesAll.map((s,idx)=>{
+      const code = state.top5[idx];
+      const color = K_COLORS[idx];
+      const dim = state.highlighted && state.highlighted!==code;
+      const op = dim ? 0.2 : 1;
+      const sw = (state.highlighted===code) ? 2.4 : 1.6;
+      const pts = s.map((v,i)=>[xOf(i),yOf(v)]);
+      if(n===1){
+        const p = pts[0];
+        return `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${color}" opacity="${op}"/>
+                <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(1)+'%':fmtS(s[0])}</text>`;
+      }
+      const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
+      const dots = pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${dim?1.5:2.5}" fill="${color}" opacity="${op}" class="pt" data-place="${key}" data-code="${code}" data-snap="${i}"/>`).join('');
+      // end label
+      const endP = pts[pts.length-1];
+      const endVal = s[s.length-1];
+      const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="10" fill="${color}" opacity="${op}" font-weight="500">${mode==='pct'?endVal.toFixed(1)+'%':fmtS(endVal)}</text>`;
+      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>${dots}${endLabel}`;
+    }).join('');
+
+    // frame
+    const frame = `
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+    `;
+
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" data-place="${key}">
+      ${yTicksSVG}${xTicksSVG}${frame}${linesSVG}
+    </svg>`;
+  }
+
+  function cardFoot(key){
+    const i = last();
+    const prev = i>0 ? i-1 : null;
+    return `<div class="card-foot">${state.top5.map((code,idx)=>{
+      const c = candByCode(code);
+      const v = votesAt(key,code,i) || 0;
+      const t = totalValidVotesAt(key,i);
+      const pc = t>0 ? v/t*100 : 0;
+      let dtx='—', dcl='flat';
+      if(prev!=null){
+        const pv = votesAt(key,code,prev) || 0;
+        const d = v-pv;
+        if(d>0){ dtx='+'+fmtS(d); dcl='up'; }
+        else if(d<0){ dtx=fmtS(d); dcl='down'; }
+        else dtx='0';
+      }
+      const dim = state.highlighted && state.highlighted!==code ? 'style="opacity:0.35"' : '';
+      return `<div class="cv" ${dim}>
+        <span class="nm" style="color:${K_COLORS[idx]}">${shortName(c.cand||c.agr).split(' ')[0]}</span>
+        <span class="vn">${state.yMode==='pct'?pc.toFixed(1)+'%':fmtS(v)}</span>
+        <span class="dlt ${dcl}">${dtx}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderGrid(){
+    const el = document.getElementById('grid');
+    if(state.places.length===0){
+      el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · el cast es lxs 5 primerxs a nivel nacional</div>`;
+      return;
+    }
+    el.innerHTML = state.places.map(key=>{
+      if(!DB.nodes[key]){ return ''; } // invalid, will be cleaned
+      const n = DB.nodes[key];
+      const d = DB.data[key]?.[last()] || {};
+      const path = nodePath(key).join(' › ');
+      const title = key===ROOT ? 'PERÚ' : n.nombre;
+      const canRemove = key!==ROOT;
+      return `<div class="card" data-key="${key}">
+        <div class="card-head">
+          <div class="card-title">
+            <div class="nm">${title}</div>
+            <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}</div>
+          </div>
+          <div class="card-actions">
+            ${canRemove?`<button data-act="rm">×</button>`:''}
+          </div>
+        </div>
+        <div class="chart-wrap">${buildChart(key, state.yMode)}</div>
+        ${cardFoot(key)}
+      </div>`;
+    }).join('');
+
+    // remove buttons
+    el.querySelectorAll('[data-act="rm"]').forEach(b=>b.onclick=(e)=>{
+      const card=e.target.closest('.card'); const key=card.dataset.key;
+      state.places = state.places.filter(x=>x!==key);
+      persist(); renderGrid();
+    });
+
+    // tooltips on data points
+    const tip = document.getElementById('tip');
+    el.querySelectorAll('.pt').forEach(pt=>{
+      pt.addEventListener('mouseenter',(e)=>{
+        const place=pt.dataset.place, code=pt.dataset.code, sn=+pt.dataset.snap;
+        const c=candByCode(code); const v=votesAt(place,code,sn)||0;
+        const t=totalValidVotesAt(place,sn); const pc = t>0?v/t*100:0;
+        const snap=DB.snapshots[sn];
+        tip.innerHTML = `<b>${shortName(c.cand||c.agr)}</b> · ${DB.nodes[place].nombre||'PERÚ'}<br>s${sn} · ${snap.label} · avance ${pct(snap.avance)}<br>${fmt(v)} votos · ${pc.toFixed(2)}%`;
+        tip.classList.add('on');
+      });
+      pt.addEventListener('mousemove',(e)=>{
+        tip.style.left = (e.clientX+12)+'px';
+        tip.style.top  = (e.clientY+12+window.scrollY-window.scrollY)+'px';
+        // offset para scroll:
+        tip.style.top = (e.pageY+12)+'px';
+        tip.style.left = (e.pageX+12)+'px';
+      });
+      pt.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+    });
+  }
+
+  // ---------- place picker ----------
+  function searchPlaces(q){
+    q = q.trim().toLowerCase();
+    if(!q) return [];
+    const res = [];
+    for(const k in DB.nodes){
+      if(k===ROOT) continue;
+      const n = DB.nodes[k];
+      if(n.nombre.toLowerCase().includes(q)){
+        res.push({key:k, node:n});
+        if(res.length>=40) break;
+      }
+    }
+    // ordenar: deptos primero, luego provs, luego distritos
+    const order = {departamento:0, provincia:1, distrito:2};
+    res.sort((a,b)=>(order[a.node.nivel]-order[b.node.nivel]) || a.node.nombre.localeCompare(b.node.nombre));
+    return res.slice(0,12);
+  }
+  function renderSug(){
+    const q = document.getElementById('q').value;
+    const box = document.getElementById('sug');
+    const res = searchPlaces(q);
+    if(!q){ box.style.display='none'; return; }
+    if(!res.length){ box.style.display=''; box.innerHTML = `<div class="empty">sin resultados para "${q}"</div>`; return; }
+    box.style.display='';
+    box.innerHTML = res.map(r=>{
+      const path = nodePath(r.key).slice(0,-1).join(' › ');
+      const already = state.places.includes(r.key) ? ' (ya agregado)' : '';
+      return `<div class="item ${already?'on':''}" data-key="${r.key}">
+        <span><span class="lvl">${r.node.nivel.slice(0,4)}</span>${r.node.nombre}${already}</span>
+        <span class="where">${path}</span>
+      </div>`;
+    }).join('');
+    box.querySelectorAll('.item').forEach(it=>it.onclick=()=>{
+      const key=it.dataset.key;
+      if(!state.places.includes(key)) state.places.push(key);
+      document.getElementById('q').value='';
+      box.style.display='none';
+      persist(); renderGrid();
+    });
+  }
+
+  // ---------- boot ----------
+  async function boot(){
+    const status = document.getElementById('status');
+    try{
+      const files = await discover();
+      status.textContent = `fusionando ${files.length} snapshot(s)…`;
+      const results = await fetchAll(files);
+      DB = merge(results);
+      state.top5 = computeTop5();
+      // limpiar places inválidos
+      state.places = state.places.filter(k => DB.nodes[k]);
+      if(state.places.length===0) state.places = [ROOT];
+      persist();
+
+      document.getElementById('status').style.display='none';
+      document.getElementById('app').style.display='';
+
+      // controls
+      document.getElementById('q').addEventListener('input', renderSug);
+      document.getElementById('q').addEventListener('focus', renderSug);
+      document.addEventListener('click', e => { if(!e.target.closest('.picker')) document.getElementById('sug').style.display='none'; });
+      document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+        state.yMode = b.dataset.mode;
+        document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
+        persist(); renderGrid();
+      });
+      document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
+      document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
+      document.getElementById('clearAll').onclick = () => {
+        if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
+          state.places = [ROOT]; persist(); renderGrid();
+        }
+      };
+
+      renderSnaps();
+      renderLegend();
+      renderGrid();
+    }catch(err){
+      status.className='status err';
+      status.innerHTML = `<b>error:</b> ${err.message}<br><br>
+      <b>opciones:</b> subir archivos <code>onpe_data_*.json</code> en la carpeta del repo, o crear <code>manifest.json</code> con <code>["archivo1.json", ...]</code>`;
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

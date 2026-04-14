@@ -95,6 +95,23 @@
 
   .empty-hint{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line-strong);background:#fafafa}
 
+  /* browser */
+  .browser{margin-top:30px;border:1px solid var(--line);background:#fff}
+  .browser h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .br-section{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .br-section:last-child{border-bottom:0}
+  .br-section h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+  .br-section h3 b{color:var(--fg);font-weight:500}
+  .br-section h3 .hint{color:var(--faint);font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:4px}
+  .chip{font-size:11px;padding:4px 9px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;color:var(--fg);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip.drill{border-color:var(--fg);background:#fafafa;font-weight:500}
+  .chip.added{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .chip.added:hover{background:#fff;color:var(--down);border-color:var(--down)}
+  .chip .x{font-size:9px;color:inherit;opacity:0.6}
+  .br-placeholder{font-size:11px;color:var(--muted);font-style:italic;padding:2px 0}
+
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
 </style>
@@ -125,6 +142,22 @@
     </div>
 
     <div class="grid" id="grid"></div>
+
+    <div class="browser">
+      <h2>lugares disponibles · click para agregar gráfico</h2>
+      <div class="br-section">
+        <h3>departamentos <span class="hint">click: agregar y ver sus provincias</span></h3>
+        <div class="chips" id="brDeps"></div>
+      </div>
+      <div class="br-section" id="brProvSec" style="display:none">
+        <h3>provincias de <b id="brDepName">—</b> <span class="hint">click: agregar y ver sus distritos</span></h3>
+        <div class="chips" id="brProvs"></div>
+      </div>
+      <div class="br-section" id="brDistSec" style="display:none">
+        <h3>distritos de <b id="brProvName">—</b> <span class="hint">click: agregar al lienzo</span></h3>
+        <div class="chips" id="brDists"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tooltip" id="tip"></div>
@@ -140,10 +173,12 @@
   const STORE = 'onpe_charts_v1';
   let DB = null;
   const state = {
-    places: [ROOT],     // lugares con gráfico (PERÚ por defecto)
+    places: [ROOT],
     yMode: 'pct',
-    highlighted: null,  // código candidatx resaltado
-    topN: []            // computed
+    highlighted: null,
+    topN: [],
+    drillDep: null,    // ubigeo del depto expandido
+    drillProv: null    // ubigeo de la provincia expandida
   };
 
   // ---------- persistencia ----------
@@ -451,7 +486,7 @@
     el.querySelectorAll('[data-act="rm"]').forEach(b=>b.onclick=(e)=>{
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
-      persist(); renderGrid();
+      persist(); renderGrid(); renderBrowser();
     });
 
     // tooltips on data points
@@ -514,7 +549,56 @@
       if(!state.places.includes(key)) state.places.push(key);
       document.getElementById('q').value='';
       box.style.display='none';
-      persist(); renderGrid();
+      persist(); renderGrid(); renderBrowser();
+    });
+  }
+
+  // ---------- browser ----------
+  function renderBrowser(){
+    const deps = DB.nodes[ROOT].children;
+    function chipHTML(key){
+      const n = DB.nodes[key];
+      const added = state.places.includes(key);
+      const drill = (state.drillDep===key || state.drillProv===key);
+      const cls = [added?'added':'', drill?'drill':''].filter(Boolean).join(' ');
+      return `<span class="chip ${cls}" data-key="${key}" title="${added?'click para quitar':'click para agregar'}">${n.nombre}${added?' <span class="x">×</span>':''}</span>`;
+    }
+    document.getElementById('brDeps').innerHTML = deps.map(chipHTML).join('');
+
+    const provSec = document.getElementById('brProvSec');
+    if(state.drillDep && DB.nodes[state.drillDep]){
+      provSec.style.display = '';
+      document.getElementById('brDepName').textContent = DB.nodes[state.drillDep].nombre;
+      const provs = DB.nodes[state.drillDep].children || [];
+      const box = document.getElementById('brProvs');
+      box.innerHTML = provs.length ? provs.map(chipHTML).join('') : '<div class="br-placeholder">sin provincias</div>';
+    } else { provSec.style.display = 'none'; }
+
+    const distSec = document.getElementById('brDistSec');
+    if(state.drillProv && DB.nodes[state.drillProv]){
+      distSec.style.display = '';
+      document.getElementById('brProvName').textContent = DB.nodes[state.drillProv].nombre;
+      const dists = DB.nodes[state.drillProv].children || [];
+      const box = document.getElementById('brDists');
+      box.innerHTML = dists.length ? dists.map(chipHTML).join('') : '<div class="br-placeholder">sin distritos</div>';
+    } else { distSec.style.display = 'none'; }
+
+    document.querySelectorAll('.browser .chip').forEach(el => el.onclick = () => {
+      const key = el.dataset.key;
+      const n = DB.nodes[key];
+      const already = state.places.includes(key);
+      if(already){
+        state.places = state.places.filter(x => x!==key);
+      } else {
+        state.places.push(key);
+      }
+      if(n.nivel === 'departamento'){
+        state.drillDep = (state.drillDep===key && already) ? null : key;
+        if(state.drillDep !== key) state.drillProv = null;
+      } else if(n.nivel === 'provincia'){
+        state.drillProv = (state.drillProv===key && already) ? null : key;
+      }
+      persist(); renderGrid(); renderBrowser();
     });
   }
 
@@ -548,13 +632,14 @@
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
       document.getElementById('clearAll').onclick = () => {
         if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
-          state.places = [ROOT]; persist(); renderGrid();
+          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser();
         }
       };
 
       renderSnaps();
       renderLegend();
       renderGrid();
+      renderBrowser();
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>

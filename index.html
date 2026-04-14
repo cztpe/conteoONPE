@@ -87,9 +87,8 @@
   .sug .item .lvl{display:inline-block;font-size:9px;padding:1px 5px;border:1px solid var(--line-strong);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
   .sug .empty{padding:10px;color:var(--muted);font-size:11px;text-align:center}
 
-  /* grid of charts */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px}
-  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+  /* stack de gráficos a ancho completo */
+  .grid{display:flex;flex-direction:column;gap:16px}
   .card{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column}
   .card-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);gap:8px}
   .card-title{display:flex;flex-direction:column;min-width:0;gap:1px}
@@ -110,9 +109,16 @@
   .card-foot .cv .dlt.down{color:var(--down)}
   .card-foot .cv .dlt.flat{color:var(--faint)}
 
-  .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:6px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .1s}
+  .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:8px 11px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .08s;line-height:1.5;font-family:'Fira Code',monospace}
   .tooltip.on{opacity:1}
   .tooltip b{color:#fff}
+  .tooltip .tt-head{font-size:10px;color:#aaa;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid #333}
+  .tooltip .tt-row{display:grid;grid-template-columns:10px 1fr auto auto;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+  .tooltip .tt-row .d{width:8px;height:8px;display:inline-block}
+  .tooltip .tt-row .nm{color:#ddd}
+  .tooltip .tt-row .v{color:#fff;padding-left:10px}
+  .tooltip .tt-row .p{color:#aaa;padding-left:6px}
+  .tooltip .tt-row.hl .nm{color:#fff;font-weight:500}
 
   .empty-hint{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line-strong);background:#fafafa}
 
@@ -434,8 +440,8 @@
     return 100;
   }
   function buildChart(key, mode){
-    const W=460, H=240;
-    const padL=44, padR=66, padT=14, padB=32;
+    const W=1200, H=300;
+    const padL=52, padR=90, padT=18, padB=36;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
     // series for all topN
@@ -506,8 +512,20 @@
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
     `;
 
+    // crosshair (oculta por defecto)
+    const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
+    // hit zones invisibles (una por snapshot, full height)
+    const nSnapsTotal = DB.snapshots.length;
+    const hitW = nSnapsTotal>1 ? innerW/(nSnapsTotal-1) : innerW;
+    const hits = DB.snapshots.map((_,i) => {
+      const cx = xOf(i);
+      const hx = Math.max(padL, cx - hitW/2);
+      const hw = Math.min(W-padR-hx, hitW);
+      return `<rect class="hit" x="${hx}" y="${padT}" width="${hw}" height="${innerH}" fill="transparent" data-place="${key}" data-snap="${i}" data-cx="${cx}" style="cursor:crosshair"/>`;
+    }).join('');
+
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" data-place="${key}">
-      ${yTicksSVG}${xTicksSVG}${frame}${linesSVG}
+      ${yTicksSVG}${xTicksSVG}${frame}${linesSVG}${crosshair}${hits}
     </svg>`;
   }
 
@@ -571,25 +589,57 @@
       persist(); renderGrid(); renderBrowser();
     });
 
-    // tooltips on data points
+    // tooltips por columna (hit-zone por snapshot)
     const tip = document.getElementById('tip');
-    el.querySelectorAll('.pt').forEach(pt=>{
-      pt.addEventListener('mouseenter',(e)=>{
-        const place=pt.dataset.place, code=pt.dataset.code, sn=+pt.dataset.snap;
-        const c=candByCode(code); const v=votesAt(place,code,sn)||0;
-        const t=totalValidVotesAt(place,sn); const pc = t>0?v/t*100:0;
-        const snap=DB.snapshots[sn];
-        tip.innerHTML = `<b>${displayName(code)}</b> · ${DB.nodes[place].nombre||'PERÚ'}<br>s${sn} · ${snap.label} · avance ${pct(snap.avance)}<br>${fmt(v)} votos · ${pc.toFixed(2)}%`;
+    el.querySelectorAll('.hit').forEach(hit => {
+      const place = hit.dataset.place;
+      const sn = +hit.dataset.snap;
+      const cx = +hit.dataset.cx;
+      const svg = hit.ownerSVGElement;
+      const crosshair = svg.querySelector('.crosshair');
+      hit.addEventListener('mouseenter', () => {
+        // crosshair ON
+        crosshair.setAttribute('x1', cx);
+        crosshair.setAttribute('x2', cx);
+        crosshair.setAttribute('opacity', '0.5');
+        // build tooltip
+        const snap = DB.snapshots[sn];
+        const placeName = DB.nodes[place].nombre || 'PERÚ';
+        const t = totalValidVotesAt(place, sn);
+        const rows = state.cast.map((code, idx) => {
+          const c = candByCode(code);
+          if(!c) return '';
+          const v = votesAt(place, code, sn) || 0;
+          const pc = t>0 ? (v/t*100) : 0;
+          const prevV = sn>0 ? (votesAt(place, code, sn-1) || 0) : null;
+          const delta = prevV!=null ? v - prevV : null;
+          let dlt = '';
+          if(delta!=null){
+            if(delta>0) dlt = `<span class="p" style="color:#8ab870">+${fmtS(delta)}</span>`;
+            else if(delta<0) dlt = `<span class="p" style="color:#d88860">${fmtS(delta)}</span>`;
+            else dlt = `<span class="p">0</span>`;
+          }
+          const hl = state.highlighted===code ? 'hl' : '';
+          return `<div class="tt-row ${hl}"><span class="d" style="background:${K_COLORS[idx]}"></span><span class="nm">${displayName(code)}</span><span class="v">${fmt(v)}</span><span class="p">${pc.toFixed(2)}%</span>${dlt?'&nbsp;&nbsp;'+dlt:''}</div>`;
+        }).join('');
+        tip.innerHTML = `<div class="tt-head"><b>${placeName}</b> · s${sn} · ${snap.label} · avance ${pct(snap.avance)}</div>${rows}`;
         tip.classList.add('on');
       });
-      pt.addEventListener('mousemove',(e)=>{
-        tip.style.left = (e.clientX+12)+'px';
-        tip.style.top  = (e.clientY+12+window.scrollY-window.scrollY)+'px';
-        // offset para scroll:
-        tip.style.top = (e.pageY+12)+'px';
-        tip.style.left = (e.pageX+12)+'px';
+      hit.addEventListener('mousemove', (e) => {
+        // posicionar tooltip cerca del cursor, cuidando bordes
+        const tw = tip.offsetWidth || 300;
+        const th = tip.offsetHeight || 140;
+        let x = e.pageX + 14;
+        let y = e.pageY + 14;
+        if(x + tw > window.scrollX + window.innerWidth - 8) x = e.pageX - tw - 14;
+        if(y + th > window.scrollY + window.innerHeight - 8) y = e.pageY - th - 14;
+        tip.style.left = x + 'px';
+        tip.style.top  = y + 'px';
       });
-      pt.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+      hit.addEventListener('mouseleave', () => {
+        crosshair.setAttribute('opacity', '0');
+        tip.classList.remove('on');
+      });
     });
   }
 

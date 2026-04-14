@@ -1264,45 +1264,33 @@
       value: `${(nac.av||0).toFixed(2)}%`,
       sub: `${fmt(nac.cont)} / ${fmt(nac.total)}` });
 
-    // === estimación de votos por procesar (usando padrón + participación por depto) ===
-    // Para cada depto, proyectamos: si ahí la participación ya observada fuera la final,
-    // el total de votos esperado es padrón * participación. Contrastando con los votos ya
-    // contados (válidos + blanco + nulo) sabemos cuántos faltan realmente.
-    let votosYaProc = 0;
-    let votosEsperados = 0;
-    let votosYaProcExt = 0;
-    let votosEsperadosExt = 0;
+    // === estimación de votos por procesar ===
+    // Basado en avance de actas: si con av% de actas hay V votos totales,
+    // al 100% habrá aproximadamente V/(av/100). Faltan V*(100-av)/av.
+    // Lo calculamos por territorio y extranjero para mostrar desglose.
+    let votosFaltanPeru = 0;
+    let votosFaltanExt = 0;
     for(const k of DB.nodes[ROOT].children){
       const dd = DB.data[k]?.[lastI];
       if(!dd) continue;
-      const pEl = padronOf(k);
-      if(pEl == null) continue;
-      const part = dd.part || 0;     // % de ciudadanxs que votaron
-      const av = dd.av || 0;         // % de actas procesadas
-      // votos totales (válidos + blanco + nulo) proyectados al 100% de actas:
-      // si con av% de actas hay X votos totales, al 100% hay X*(100/av)
+      const av = dd.av || 0;
+      if(av <= 0 || av >= 100) continue;  // si es 0% o 100%, no hay nada que extrapolar
       let votosActuales = 0;
       for(const v of Object.values(dd.votes||{})) votosActuales += v;
-      const esperado = pEl * (part/100);
+      // proyección al 100% - votos actuales
+      const faltan = votosActuales * ((100 - av) / av);
       const esExt = (DB.nodes[k].ambito===2) || (DB.nodes[k].ubigeo||'').startsWith('9');
-      if(esExt){
-        votosYaProcExt += votosActuales;
-        votosEsperadosExt += esperado;
-      } else {
-        votosYaProc += votosActuales;
-        votosEsperados += esperado;
-      }
+      if(esExt) votosFaltanExt += faltan;
+      else votosFaltanPeru += faltan;
     }
-    const faltan = Math.max(0, votosEsperados - votosYaProc);
-    const faltanExt = Math.max(0, votosEsperadosExt - votosYaProcExt);
-    const faltanTotal = faltan + faltanExt;
+    const faltanTotal = Math.round(votosFaltanPeru + votosFaltanExt);
     if(faltanTotal > 0){
       const subParts = [];
-      if(faltan > 0) subParts.push(`${fmtS(faltan)} territorio`);
-      if(faltanExt > 0) subParts.push(`${fmtS(faltanExt)} extranjero`);
+      if(votosFaltanPeru > 0) subParts.push(`${fmtS(Math.round(votosFaltanPeru))} territorio`);
+      if(votosFaltanExt > 0) subParts.push(`${fmtS(Math.round(votosFaltanExt))} ext`);
       cards.push({ title: 'votos por procesar (est.)',
         value: fmtS(faltanTotal),
-        sub: subParts.join(' · ') || 'según padrón × participación' });
+        sub: subParts.join(' · ') + ' · proyección actas' });
     }
     if(nuevosVotos !== null){
       cards.push({ title: 'votos nuevos contabilizados',

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>onpe · top 5 · seguimiento por lugar</title>
+<title>onpe · top 7 · seguimiento por lugar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -13,8 +13,8 @@
     --line:#ececec; --line-strong:#d0d0d0;
     --accent:#5a7a3a;
     --down:#b45a1f;
-    /* cast colors (estables) */
-    --k1:#c17a3a; --k2:#a04040; --k3:#5a7a3a; --k4:#3a6a8a; --k5:#6a3a7a;
+    /* cast colors (estables, top 7) */
+    --k1:#c17a3a; --k2:#a04040; --k3:#5a7a3a; --k4:#3a6a8a; --k5:#6a3a7a; --k6:#8a6a2a; --k7:#3a7a6a;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);font-family:'Fira Code',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5}
@@ -80,7 +80,7 @@
   .card-actions button:hover{border-color:var(--down);color:var(--down)}
   .chart-wrap{padding:8px 4px 4px;position:relative}
   .chart-wrap svg{width:100%;height:auto;display:block}
-  .card-foot{border-top:1px solid var(--line);padding:8px 14px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10px}
+  .card-foot{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px}
   .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
   .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card-foot .cv .vn{color:var(--muted);font-variant-numeric:tabular-nums}
@@ -102,8 +102,8 @@
 <body>
 <div class="wrap">
   <a class="back" href="../">← onpe/</a>
-  <h1>onpe · top 5 por lugar</h1>
-  <div class="sub">seguimiento de lxs 5 primerxs candidatxs nacionales · agrega lugares para generar gráficos · elecciones 2026</div>
+  <h1>onpe · top 7 por lugar</h1>
+  <div class="sub">seguimiento de lxs 7 primerxs candidatxs nacionales · agrega lugares para generar gráficos · elecciones 2026</div>
 
   <div class="status" id="status">descubriendo snapshots…</div>
 
@@ -143,7 +143,7 @@
     places: [ROOT],     // lugares con gráfico (PERÚ por defecto)
     yMode: 'pct',
     highlighted: null,  // código candidatx resaltado
-    top5: []            // computed
+    topN: []            // computed
   };
 
   // ---------- persistencia ----------
@@ -233,9 +233,25 @@
   const isBN = agr => agr==='VOTOS EN BLANCO' || agr==='VOTOS NULOS';
   const candByCode = c => DB.candidatos_master.find(x=>x.code===c);
   const shortName = nm => { if(!nm) return ''; const p=nm.trim().split(/\s+/); return p.length<=2?nm:p[0]+' '+p[p.length-2]; };
-  const K_COLORS = ['#c17a3a','#a04040','#5a7a3a','#3a6a8a','#6a3a7a'];
+  const K_COLORS = ['#c17a3a','#a04040','#5a7a3a','#3a6a8a','#6a3a7a','#8a6a2a','#3a7a6a'];
+  const CAST_SIZE = 7;
+  // overrides manuales de nombre para mostrar (por código de agrupación)
+  const NAME_OVERRIDES = {
+    '8':  'Keiko Fujimori',
+    '35': 'Rafael López Aliaga',
+    '16': 'Jorge Nieto',
+    '14': 'Ricardo Belmont',
+    '10': 'Roberto Sánchez',
+    '2':  'Alfonso López Chau',
+    '23': 'Carlos Álvarez'
+  };
+  function displayName(code){
+    if(NAME_OVERRIDES[code]) return NAME_OVERRIDES[code];
+    const c = candByCode(code);
+    return c ? shortName(c.cand || c.agr) : code;
+  }
 
-  function computeTop5(){
+  function computeTopN(){
     const i = last();
     const nac = DB.data[ROOT]?.[i]?.votes || {};
     const arr = [];
@@ -245,7 +261,7 @@
       arr.push({code,v});
     }
     arr.sort((a,b)=>b.v-a.v);
-    return arr.slice(0,5).map(x=>x.code);
+    return arr.slice(0,CAST_SIZE).map(x=>x.code);
   }
 
   function nodePath(key){
@@ -277,11 +293,11 @@
   }
   function renderLegend(){
     const el = document.getElementById('legend');
-    el.innerHTML = state.top5.map((code,idx)=>{
+    el.innerHTML = state.topN.map((code,idx)=>{
       const c = candByCode(code);
       const dim = state.highlighted && state.highlighted!==code ? 'dim' : '';
       const act = state.highlighted===code ? 'act' : '';
-      return `<div class="leg ${dim} ${act}" data-code="${code}"><span class="dot" style="background:${K_COLORS[idx]}"></span><span class="nm">${shortName(c.cand||c.agr)}</span><span class="ag">${c.agr.toLowerCase()}</span></div>`;
+      return `<div class="leg ${dim} ${act}" data-code="${code}"><span class="dot" style="background:${K_COLORS[idx]}"></span><span class="nm">${displayName(code)}</span><span class="ag">${c.agr.toLowerCase()}</span></div>`;
     }).join('');
     el.querySelectorAll('.leg').forEach(ln=>ln.onclick=()=>{
       const code=ln.dataset.code;
@@ -305,8 +321,8 @@
     const padL=44, padR=66, padT=14, padB=32;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
-    // series for all top5
-    const seriesAll = state.top5.map(code => seriesFor(key, code, mode));
+    // series for all topN
+    const seriesAll = state.topN.map(code => seriesFor(key, code, mode));
 
     // y scale
     let yMax;
@@ -347,7 +363,7 @@
     // lines
     const n = DB.snapshots.length;
     const linesSVG = seriesAll.map((s,idx)=>{
-      const code = state.top5[idx];
+      const code = state.topN[idx];
       const color = K_COLORS[idx];
       const dim = state.highlighted && state.highlighted!==code;
       const op = dim ? 0.2 : 1;
@@ -381,7 +397,7 @@
   function cardFoot(key){
     const i = last();
     const prev = i>0 ? i-1 : null;
-    return `<div class="card-foot">${state.top5.map((code,idx)=>{
+    return `<div class="card-foot">${state.topN.map((code,idx)=>{
       const c = candByCode(code);
       const v = votesAt(key,code,i) || 0;
       const t = totalValidVotesAt(key,i);
@@ -396,7 +412,7 @@
       }
       const dim = state.highlighted && state.highlighted!==code ? 'style="opacity:0.35"' : '';
       return `<div class="cv" ${dim}>
-        <span class="nm" style="color:${K_COLORS[idx]}">${shortName(c.cand||c.agr).split(' ')[0]}</span>
+        <span class="nm" style="color:${K_COLORS[idx]}">${displayName(code).split(' ')[0]}</span>
         <span class="vn">${state.yMode==='pct'?pc.toFixed(1)+'%':fmtS(v)}</span>
         <span class="dlt ${dcl}">${dtx}</span>
       </div>`;
@@ -406,7 +422,7 @@
   function renderGrid(){
     const el = document.getElementById('grid');
     if(state.places.length===0){
-      el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · el cast es lxs 5 primerxs a nivel nacional</div>`;
+      el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · el cast es lxs 7 primerxs a nivel nacional</div>`;
       return;
     }
     el.innerHTML = state.places.map(key=>{
@@ -446,7 +462,7 @@
         const c=candByCode(code); const v=votesAt(place,code,sn)||0;
         const t=totalValidVotesAt(place,sn); const pc = t>0?v/t*100:0;
         const snap=DB.snapshots[sn];
-        tip.innerHTML = `<b>${shortName(c.cand||c.agr)}</b> · ${DB.nodes[place].nombre||'PERÚ'}<br>s${sn} · ${snap.label} · avance ${pct(snap.avance)}<br>${fmt(v)} votos · ${pc.toFixed(2)}%`;
+        tip.innerHTML = `<b>${displayName(code)}</b> · ${DB.nodes[place].nombre||'PERÚ'}<br>s${sn} · ${snap.label} · avance ${pct(snap.avance)}<br>${fmt(v)} votos · ${pc.toFixed(2)}%`;
         tip.classList.add('on');
       });
       pt.addEventListener('mousemove',(e)=>{
@@ -510,7 +526,7 @@
       status.textContent = `fusionando ${files.length} snapshot(s)…`;
       const results = await fetchAll(files);
       DB = merge(results);
-      state.top5 = computeTop5();
+      state.topN = computeTopN();
       // limpiar places inválidos
       state.places = state.places.filter(k => DB.nodes[k]);
       if(state.places.length===0) state.places = [ROOT];

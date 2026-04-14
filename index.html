@@ -216,6 +216,29 @@
   .chip .x{font-size:10px;color:inherit;opacity:0.7;flex-shrink:0}
   .br-placeholder{font-size:11px;color:var(--muted);font-style:italic;padding:2px 0}
 
+  .cs-compare{margin-top:28px;border:1px solid var(--line);padding:16px 18px;background:#fdfcfa}
+  .cs-compare h2{margin:0 0 4px;font-size:14px;font-weight:500;letter-spacing:.02em}
+  .cs-compare .cs-note{margin:0 0 12px;font-size:11px;color:var(--muted);line-height:1.5}
+  .cs-meta{font-size:11px;color:var(--muted);margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap}
+  .cs-meta .m{display:flex;gap:6px;align-items:baseline}
+  .cs-meta .m b{color:var(--fg);font-weight:500}
+  .cs-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+  .cs-table th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line-strong);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  .cs-table th.num{text-align:right}
+  .cs-table td{padding:5px 8px;border-bottom:1px solid var(--line)}
+  .cs-table td.num{text-align:right}
+  .cs-table tr.hit{background:#eaf2e0}
+  .cs-table tr.hit td{font-weight:500}
+  .cs-table tr.hit td:first-child{border-left:3px solid var(--accent);padding-left:6px}
+  .cs-table tr:hover:not(.hit){background:#fafafa}
+  .cs-table .bar-cell{width:140px}
+  .cs-table .bar-mini{position:relative;height:10px;background:#f0ede6;width:100%}
+  .cs-table .bar-mini .b21{position:absolute;left:0;top:0;height:100%;background:#a04040;opacity:0.55}
+  .cs-table .bar-mini .b26{position:absolute;left:0;top:0;height:100%;background:var(--accent);opacity:0.75;mix-blend-mode:multiply}
+  .cs-table .delta-up{color:var(--accent);font-weight:500}
+  .cs-table .delta-down{color:#a04040}
+  .cs-table .delta-neutral{color:var(--muted)}
+
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
 </style>
@@ -298,6 +321,13 @@
         <h3>distritos de <b id="brProvName">—</b> <span class="hint">click: agregar al lienzo</span></h3>
         <div class="chips" id="brDists"></div>
       </div>
+    </div>
+
+    <div class="cs-compare" id="csCompare" style="display:none">
+      <h2>castillo 2021 vs sánchez palomino 2026 · por departamento</h2>
+      <p class="cs-note">comparación territorial del voto de izquierda. 1ra vuelta 2021 vs conteo actual. filas resaltadas: sánchez ha alcanzado o superado el % de castillo en ese depto.</p>
+      <div class="cs-meta" id="csMeta"></div>
+      <table class="cs-table" id="csTable"></table>
     </div>
   </div>
 
@@ -599,11 +629,11 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare();
     });
     document.getElementById('snapsAll').onclick = () => {
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare();
     };
   }
   function renderLegend(){
@@ -624,7 +654,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements(); renderCastilloCompare();
         return;
       }
       const code = ln.dataset.code;
@@ -1643,6 +1673,163 @@
     </div>`;
   }
 
+  function renderCastilloCompare(){
+    const box = document.getElementById('csCompare');
+    if(!CASTILLO){ box.style.display='none'; return; }
+
+    // Detectar el candidatx "Sánchez Palomino" automáticamente en el master
+    // Buscamos por apellido "SANCHEZ PALOMINO" en los candidatos_master
+    let sanchezCode = null;
+    for(const c of DB.candidatos_master){
+      const nm = (c.cand || '').toUpperCase();
+      if(nm.includes('SANCHEZ PALOMINO') || nm.includes('SÁNCHEZ PALOMINO')){
+        sanchezCode = c.code;
+        break;
+      }
+    }
+    if(!sanchezCode){ box.style.display='none'; return; }
+    box.style.display='';
+
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+
+    // Deptos peruanos + extranjero (hijos directos del root excluyendo ambito)
+    const rows = [];
+    const castilloTotalV = CASTILLO.meta?.total_nacional?.votos || 0;
+    const castilloTotalT = CASTILLO.meta?.total_nacional?.total_validos || 0;
+    const castilloNacPct = castilloTotalT>0 ? castilloTotalV/castilloTotalT*100 : 0;
+
+    for(const k of DB.nodes[ROOT].children){
+      const n = DB.nodes[k];
+      const dd = DB.data[k]?.[lastI];
+      if(!dd) continue;
+
+      // Castillo 2021 en este depto (si existe en el JSON)
+      const c21 = CASTILLO.depto?.[k];
+      const c21pct = c21?.pct ?? null;
+
+      // Sánchez Palomino ahora
+      const vs = dd.votes || {};
+      let totValidos = 0;
+      for(const c in vs){
+        const cc = candByCode(c);
+        if(cc && !isBN(cc.agr)) totValidos += vs[c];
+      }
+      const spVotes = vs[sanchezCode] || 0;
+      const spPct = totValidos>0 ? spVotes/totValidos*100 : 0;
+
+      rows.push({
+        key: k,
+        nombre: n.nombre,
+        nivel: n.nivel === 'ambito' ? 'extranjero' : 'departamento',
+        avance: dd.av || 0,
+        c21pct,
+        c21votos: c21?.v ?? null,
+        spPct,
+        spVotes,
+        totValidos,
+        delta: c21pct != null ? spPct - c21pct : null
+      });
+    }
+
+    // Orden: primero los hits (donde SP iguala o supera a Castillo), luego por delta descendente.
+    // Dentro de hits: por c21pct descendente (los deptos donde Castillo era más fuerte primero).
+    rows.sort((a,b) => {
+      const hitA = a.delta != null && a.delta >= 0 ? 1 : 0;
+      const hitB = b.delta != null && b.delta >= 0 ? 1 : 0;
+      if(hitA !== hitB) return hitB - hitA;
+      // dentro del mismo grupo: primero los que tienen castillo más alto
+      if(a.c21pct == null) return 1;
+      if(b.c21pct == null) return -1;
+      return b.c21pct - a.c21pct;
+    });
+
+    // Totales agregados (solo territorio, excluye extranjero)
+    let spTot=0, spTotV=0, hits=0, totRows=0;
+    for(const r of rows){
+      if(r.nivel==='extranjero') continue;
+      if(r.c21pct == null) continue;
+      totRows++;
+      if(r.delta != null && r.delta >= 0) hits++;
+      spTot += r.spVotes;
+      spTotV += r.totValidos;
+    }
+    const spNacPct = spTotV>0 ? spTot/spTotV*100 : 0;
+
+    // Meta
+    document.getElementById('csMeta').innerHTML = `
+      <div class="m"><span>castillo 2021 nacional</span><b>${castilloNacPct.toFixed(2)}%</b></div>
+      <div class="m"><span>sánchez 2026 nacional</span><b>${spNacPct.toFixed(2)}%</b></div>
+      <div class="m"><span>deptos donde iguala o supera</span><b>${hits} / ${totRows}</b></div>
+      <div class="m"><span>avance conteo</span><b>${(DB.data[ROOT][lastI]?.av||0).toFixed(2)}%</b></div>
+    `;
+
+    // Escala común: mayor % observado entre c21 y sp en cualquier depto
+    let scaleMax = 0;
+    for(const r of rows){
+      if(r.c21pct != null && r.c21pct > scaleMax) scaleMax = r.c21pct;
+      if(r.spPct > scaleMax) scaleMax = r.spPct;
+    }
+    scaleMax = Math.max(scaleMax, 1) * 1.05;
+
+    const thead = `<thead><tr>
+      <th>territorio</th>
+      <th class="num">castillo 21</th>
+      <th class="num">sánchez 26</th>
+      <th class="num">Δ</th>
+      <th class="num">avance</th>
+      <th class="bar-cell">comparación visual</th>
+    </tr></thead>`;
+
+    const tbody = '<tbody>' + rows.map(r => {
+      const hit = r.delta != null && r.delta >= 0;
+      const c21Str = r.c21pct != null ? r.c21pct.toFixed(2)+'%' : '—';
+      const spStr = r.spPct.toFixed(2)+'%';
+      let deltaStr, deltaCls;
+      if(r.delta == null){
+        deltaStr = '—'; deltaCls = 'delta-neutral';
+      } else if(r.delta > 0){
+        deltaStr = '+'+r.delta.toFixed(2)+'pp'; deltaCls = 'delta-up';
+      } else if(r.delta < 0){
+        deltaStr = r.delta.toFixed(2)+'pp'; deltaCls = 'delta-down';
+      } else {
+        deltaStr = '0pp'; deltaCls = 'delta-neutral';
+      }
+      const wC21 = r.c21pct != null ? (r.c21pct/scaleMax*100).toFixed(1) : 0;
+      const wSP = (r.spPct/scaleMax*100).toFixed(1);
+      const avStr = r.avance.toFixed(1)+'%';
+      return `<tr class="${hit?'hit':''}" data-key="${r.key}">
+        <td>${r.nombre}${r.nivel==='extranjero'?' <span style="color:var(--faint);font-size:10px">(exterior)</span>':''}</td>
+        <td class="num">${c21Str}</td>
+        <td class="num">${spStr}</td>
+        <td class="num ${deltaCls}">${deltaStr}</td>
+        <td class="num" style="color:var(--muted)">${avStr}</td>
+        <td class="bar-cell">
+          <div class="bar-mini">
+            <div class="b21" style="width:${wC21}%"></div>
+            <div class="b26" style="width:${wSP}%"></div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('') + '</tbody>';
+
+    document.getElementById('csTable').innerHTML = thead + tbody;
+
+    // click en fila: añade el depto al lienzo
+    document.querySelectorAll('#csTable tbody tr').forEach(tr => {
+      tr.style.cursor = 'pointer';
+      tr.onclick = () => {
+        const k = tr.dataset.key;
+        if(k && !state.places.includes(k)){
+          state.places.push(k);
+          persist();
+          renderGrid(); renderBrowser();
+          tr.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+      };
+    });
+  }
+
   function renderDuelos(){
     // rellenar selects del creador
     const selA = document.getElementById('duelA');
@@ -1790,7 +1977,7 @@
       document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
         state.yMode = b.dataset.mode;
         document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
-        persist(); renderGrid(); renderDuelos(); renderInforme();
+        persist(); renderGrid(); renderDuelos(); renderInforme(); renderCastilloCompare();
       });
       document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
@@ -1841,6 +2028,7 @@
       renderGrid();
       renderBrowser();
       renderDuelos();
+      renderCastilloCompare();
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>

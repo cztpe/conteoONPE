@@ -694,8 +694,11 @@
 
     // y scale
     let yMax;
+    // Si el toggle Castillo está activo y el modo es pct, incluir ese valor para que
+    // la línea siempre sea visible dentro del chart
+    const castilloBaseline = (state.showCastillo && mode==='pct') ? castilloPct(key) : null;
     if(mode==='pct'){
-      const m = Math.max(...seriesAll.flat(), 1);
+      const m = Math.max(...seriesAll.flat(), castilloBaseline ?? 1, 1);
       yMax = niceMax(Math.ceil(m*1.05));
     } else {
       yMax = Math.max(...seriesAll.flat(), 1);
@@ -785,15 +788,12 @@
 
     // línea Castillo 2021 (baseline histórica) — solo si está activada, modo %, y hay dato
     let castilloSVG = '';
-    if(state.showCastillo && mode==='pct'){
-      const cPct = castilloPct(key);
-      if(cPct != null && cPct <= yMax && cPct >= 0){
-        const yC = yOf(cPct);
-        castilloSVG = `
-          <line x1="${padL}" y1="${yC}" x2="${W-padR}" y2="${yC}" stroke="#a04040" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.55"/>
-          <text x="${W-padR-4}" y="${yC-3}" text-anchor="end" font-size="9" fill="#a04040" opacity="0.85" font-style="italic">castillo 2021 · ${cPct.toFixed(1)}%</text>
-        `;
-      }
+    if(castilloBaseline != null && castilloBaseline >= 0){
+      const yC = yOf(castilloBaseline);
+      castilloSVG = `
+        <line x1="${padL}" y1="${yC}" x2="${W-padR}" y2="${yC}" stroke="#a04040" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.55"/>
+        <text x="${W-padR-4}" y="${yC-3}" text-anchor="end" font-size="9" fill="#a04040" opacity="0.85" font-style="italic">castillo 2021 · ${castilloBaseline.toFixed(1)}%</text>
+      `;
     }
 
     const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
@@ -1779,6 +1779,9 @@
 
       document.getElementById('status').style.display='none';
       document.getElementById('app').style.display='';
+
+      // debug handles — accesibles desde la consola del navegador
+      window.DEBUG = { DB, CASTILLO, state, castilloPct, activeIndices };
 
       // controls
       document.getElementById('q').addEventListener('input', renderSug);

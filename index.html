@@ -137,6 +137,11 @@
   .card-title .nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card-title .meta{font-size:10px;color:var(--muted)}
   .card-title .meta b{color:var(--accent)}
+  .card-title .breakdown{font-size:10px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .card-title .breakdown .bk b{color:var(--fg);font-weight:500}
+  .card-title .breakdown .bk-lbl{text-transform:uppercase;letter-spacing:.05em;font-size:9px;color:var(--faint);margin-right:3px}
+  .card-title .breakdown .bk-sub{color:var(--faint);font-size:10px;margin-left:3px}
+  .card-title .breakdown .bk-sep{color:var(--faint)}
   .card-actions{display:flex;gap:4px;flex-shrink:0}
   .card-actions button{font-family:inherit;font-size:10px;padding:3px 7px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
   .card-actions button:hover{border-color:var(--down);color:var(--down)}
@@ -787,13 +792,35 @@
       const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
       const d = DB.data[key]?.[lastI] || {};
       const path = nodePath(key).join(' › ');
-      const title = key===ROOT ? 'PERÚ' : n.nombre;
+      const title = key===ROOT ? 'PERÚ + EXTRANJERO' : n.nombre;
       const canRemove = key!==ROOT;
+
+      // si es el nodo raíz, agregar desglose territorio/extranjero
+      let breakdown = '';
+      if(key === ROOT){
+        const extKey = '900000';
+        const extD = DB.data[extKey]?.[lastI];
+        // suma de los 25 deptos peruanos (todos los hijos del root que NO son extranjero)
+        let terrCont = 0, terrTotal = 0;
+        for(const ck of n.children){
+          if(ck === extKey) continue;
+          const cd = DB.data[ck]?.[lastI];
+          if(cd){ terrCont += cd.cont||0; terrTotal += cd.total||0; }
+        }
+        const terrAv = terrTotal>0 ? (terrCont/terrTotal*100) : 0;
+        breakdown = `<div class="breakdown">
+          <span class="bk"><span class="bk-lbl">territorio</span> <b>${terrAv.toFixed(2)}%</b> <span class="bk-sub">${fmt(terrCont)} / ${fmt(terrTotal)}</span></span>
+          <span class="bk-sep">·</span>
+          ${extD ? `<span class="bk"><span class="bk-lbl">extranjero</span> <b>${extD.av.toFixed(2)}%</b> <span class="bk-sub">${fmt(extD.cont)} / ${fmt(extD.total)}</span></span>` : `<span class="bk-sub">extranjero no disponible</span>`}
+        </div>`;
+      }
+
       return `<div class="card" data-key="${key}">
         <div class="card-head">
           <div class="card-title">
             <div class="nm">${title}</div>
             <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}</div>
+            ${breakdown}
           </div>
           <div class="card-actions">
             ${canRemove?`<button data-act="rm">×</button>`:''}

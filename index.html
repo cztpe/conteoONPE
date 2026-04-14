@@ -225,6 +225,11 @@
   .cs-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
   .cs-table th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line-strong);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
   .cs-table th.num{text-align:right}
+  .cs-table th.sortable{cursor:pointer;user-select:none}
+  .cs-table th.sortable:hover{color:var(--fg)}
+  .cs-table th.sortable .sort-ind{display:inline-block;margin-left:4px;font-size:9px;opacity:0.5}
+  .cs-table th.sortable.active{color:var(--accent)}
+  .cs-table th.sortable.active .sort-ind{opacity:1}
   .cs-table td{padding:5px 8px;border-bottom:1px solid var(--line)}
   .cs-table td.num{text-align:right}
   .cs-table tr.hit{background:#eaf2e0}
@@ -404,7 +409,8 @@
     castPickerOpen: false,
     snapsInactive: new Set(),
     duelos: [],
-    showCastillo: false  // línea baseline 2021
+    showCastillo: false,  // línea baseline 2021
+    csSort: { col: 'default', dir: 'desc' }  // ordenamiento tabla castillo-sanchez
   };
 
   // ---------- persistencia ----------
@@ -417,6 +423,7 @@
     if(Array.isArray(saved.snapsInactive)) state.snapsInactive = new Set(saved.snapsInactive);
     if(Array.isArray(saved.duelos)) state.duelos = saved.duelos;
     if(typeof saved.showCastillo==='boolean') state.showCastillo = saved.showCastillo;
+    if(saved.csSort && typeof saved.csSort==='object') state.csSort = saved.csSort;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -426,7 +433,8 @@
       cast: state.cast,
       snapsInactive: [...state.snapsInactive],
       duelos: state.duelos,
-      showCastillo: state.showCastillo
+      showCastillo: state.showCastillo,
+      csSort: state.csSort
     })); }catch(e){}
   }
 
@@ -1732,17 +1740,38 @@
       });
     }
 
-    // Orden: primero los hits (donde SP iguala o supera a Castillo), luego por delta descendente.
-    // Dentro de hits: por c21pct descendente (los deptos donde Castillo era más fuerte primero).
-    rows.sort((a,b) => {
-      const hitA = a.delta != null && a.delta >= 0 ? 1 : 0;
-      const hitB = b.delta != null && b.delta >= 0 ? 1 : 0;
-      if(hitA !== hitB) return hitB - hitA;
-      // dentro del mismo grupo: primero los que tienen castillo más alto
-      if(a.c21pct == null) return 1;
-      if(b.c21pct == null) return -1;
-      return b.c21pct - a.c21pct;
-    });
+    // Ordenamiento configurable
+    const sortCol = state.csSort?.col || 'default';
+    const sortDir = state.csSort?.dir || 'desc';
+    const dirMult = sortDir === 'desc' ? -1 : 1;  // desc: mayor primero
+
+    if(sortCol === 'default'){
+      // primero los hits (SP iguala o supera), luego por c21pct desc
+      rows.sort((a,b) => {
+        const hitA = a.delta != null && a.delta >= 0 ? 1 : 0;
+        const hitB = b.delta != null && b.delta >= 0 ? 1 : 0;
+        if(hitA !== hitB) return hitB - hitA;
+        if(a.c21pct == null) return 1;
+        if(b.c21pct == null) return -1;
+        return b.c21pct - a.c21pct;
+      });
+    } else {
+      rows.sort((a,b) => {
+        const getVal = r => {
+          if(sortCol === 'nombre') return r.nombre || '';
+          if(sortCol === 'c21') return r.c21pct ?? -Infinity;
+          if(sortCol === 'sp') return r.spPct ?? -Infinity;
+          if(sortCol === 'delta') return r.delta ?? -Infinity;
+          if(sortCol === 'avance') return r.avance ?? -Infinity;
+          return 0;
+        };
+        const va = getVal(a), vb = getVal(b);
+        if(typeof va === 'string'){
+          return va.localeCompare(vb) * dirMult;
+        }
+        return (va - vb) * dirMult;
+      });
+    }
 
     // Totales agregados (solo territorio, excluye extranjero)
     let spTot=0, spTotV=0, hits=0, totRows=0;
@@ -1772,12 +1801,21 @@
     }
     scaleMax = Math.max(scaleMax, 1) * 1.05;
 
+    // indicadores de orden por columna
+    const arrow = (col) => {
+      if(sortCol !== col) return '<span class="sort-ind">↕</span>';
+      return sortDir === 'desc'
+        ? '<span class="sort-ind">▼</span>'
+        : '<span class="sort-ind">▲</span>';
+    };
+    const cls = (col) => 'sortable' + (sortCol === col ? ' active' : '');
+
     const thead = `<thead><tr>
-      <th>territorio</th>
-      <th class="num">castillo 21</th>
-      <th class="num">sánchez 26</th>
-      <th class="num">Δ</th>
-      <th class="num">avance</th>
+      <th class="${cls('nombre')}" data-sort="nombre">territorio${arrow('nombre')}</th>
+      <th class="num ${cls('c21')}" data-sort="c21">castillo 21${arrow('c21')}</th>
+      <th class="num ${cls('sp')}" data-sort="sp">sánchez 26${arrow('sp')}</th>
+      <th class="num ${cls('delta')}" data-sort="delta">Δ${arrow('delta')}</th>
+      <th class="num ${cls('avance')}" data-sort="avance">avance${arrow('avance')}</th>
       <th class="bar-cell">comparación visual</th>
     </tr></thead>`;
 
@@ -1814,6 +1852,26 @@
     }).join('') + '</tbody>';
 
     document.getElementById('csTable').innerHTML = thead + tbody;
+
+    // click en header: ordenar
+    document.querySelectorAll('#csTable th.sortable').forEach(th => {
+      th.onclick = () => {
+        const col = th.dataset.sort;
+        if(state.csSort.col === col){
+          // toggle dir: desc → asc → default
+          if(state.csSort.dir === 'desc'){
+            state.csSort = { col, dir: 'asc' };
+          } else {
+            // ya estaba asc → volver a default (orden inteligente)
+            state.csSort = { col: 'default', dir: 'desc' };
+          }
+        } else {
+          state.csSort = { col, dir: 'desc' };
+        }
+        persist();
+        renderCastilloCompare();
+      };
+    });
 
     // click en fila: añade el depto al lienzo
     document.querySelectorAll('#csTable tbody tr').forEach(tr => {

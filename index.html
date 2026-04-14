@@ -15,6 +15,7 @@
     --up:#5a7a3a; --down:#b45a1f;
     --blank:#9a8858; --nulo:#a85a5a;
     --sel:#f6f9ef;
+    --c1:#5a7a3a; --c2:#b45a1f; --c3:#3a5a7a; --c4:#7a3a5a;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);font-family:'Fira Code',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5}
@@ -42,11 +43,16 @@
   .panel{border:1px solid var(--line);background:#fff}
   .panel h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .panel h2 .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
-  .ctbl-head,.crow{display:grid;grid-template-columns:28px minmax(160px,1.8fr) 80px 60px 60px 90px 60px;align-items:center;gap:0;padding:0 8px;border-bottom:1px solid var(--line)}
+  .ctbl-head,.crow{display:grid;grid-template-columns:22px 28px minmax(160px,1.8fr) 80px 60px 60px 90px 60px;align-items:center;gap:0;padding:0 8px;border-bottom:1px solid var(--line)}
   .ctbl-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:8px;padding-bottom:8px;background:#fafafa}
   .crow{min-height:36px;cursor:pointer;transition:background .06s}
   .crow:hover{background:#f7f9f4}
   .crow.sel{background:var(--sel);border-left:3px solid var(--accent);padding-left:5px}
+  .crow .cmpbox{width:14px;height:14px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;display:inline-block;vertical-align:middle;position:relative}
+  .crow .cmpbox:hover{border-color:var(--accent)}
+  .crow .cmpbox.on{border-color:transparent}
+  .crow .cmpbox.on::after{content:'';position:absolute;inset:0;background:var(--cmpc,var(--accent))}
+  .crow .cmpbox.disabled{opacity:0.3;cursor:not-allowed}
   .crow .cell{padding:5px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .crow .rank{color:var(--muted);font-size:11px;text-align:right;padding-right:6px}
   .crow .who{display:flex;flex-direction:column;line-height:1.2;min-width:0}
@@ -101,6 +107,36 @@
   .status{padding:14px 16px;border:1px solid var(--line);background:#fafafa;color:var(--muted);font-size:12px;margin-bottom:16px}
   .status.err{border-color:var(--down);color:var(--down);background:#fbf2ed}
   .status code{background:#fff;padding:1px 5px;border:1px solid var(--line);font-size:11px}
+
+  /* comparador */
+  .cmp-hint{padding:6px 14px;font-size:11px;color:var(--muted);background:#fafafa;border-bottom:1px solid var(--line)}
+  .cmp-hint b{color:var(--accent)}
+  .cmp-legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:11px}
+  .cmp-chip{display:flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .cmp-chip:hover{border-color:var(--down);color:var(--down)}
+  .cmp-chip .dot{width:10px;height:10px;display:inline-block}
+  .cmp-chip .x{color:var(--faint);font-size:10px;margin-left:4px}
+  .cmp-sections{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .cmp-sections>div{padding:12px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cmp-sections>div:nth-child(2n){border-right:0}
+  @media(max-width:700px){.cmp-sections{grid-template-columns:1fr}.cmp-sections>div{border-right:0}}
+  .cmp-sections h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+  .cmp-bars{display:flex;flex-direction:column;gap:5px}
+  .cmp-bar{display:grid;grid-template-columns:minmax(90px,1fr) 1fr 80px;gap:8px;align-items:center;font-size:11px}
+  .cmp-bar .nm{color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cmp-bar .track{height:14px;background:#f4f4f0;position:relative}
+  .cmp-bar .track span{position:absolute;left:0;top:0;height:100%;background:var(--cmpc,var(--accent));opacity:0.85}
+  .cmp-bar .val{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .cmp-margins{display:grid;gap:3px;font-size:11px;font-variant-numeric:tabular-nums}
+  .cmp-margins .mg{display:grid;grid-template-columns:1fr 60px;gap:6px;padding:2px 0;border-bottom:1px dotted var(--line)}
+  .cmp-margins .mg .delta{text-align:right;color:var(--accent)}
+  .cmp-traj{display:block;width:100%;height:140px}
+  .cmp-h2h{font-size:11px}
+  .cmp-h2h .row{display:grid;grid-template-columns:14px 1fr 40px;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line)}
+  .cmp-h2h .row .d{width:10px;height:10px}
+  .cmp-h2h .row .n{color:var(--muted);text-align:right}
+  .cmp-h2h .row b{color:var(--fg);font-weight:500}
+  .cmp-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:12px}
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
 </style>
@@ -140,6 +176,7 @@
           <h2>candidatxs <span class="meta" id="scopeMeta">—</span></h2>
           <div>
             <div class="ctbl-head">
+              <div class="cell" title="comparar (hasta 4)" style="text-align:center;color:var(--accent)">cmp</div>
               <div class="cell"></div>
               <div class="cell">candidatx / agrupación</div>
               <div class="cell" style="text-align:right">votos</div>
@@ -150,6 +187,11 @@
             </div>
             <div id="clist"></div>
           </div>
+        </div>
+
+        <div class="panel" id="cmpPanel" style="margin-top:16px;display:none">
+          <h2>comparador <span class="meta" id="cmpMeta">—</span></h2>
+          <div id="cmpBody"></div>
         </div>
 
         <div class="panel" style="margin-top:16px">
@@ -182,7 +224,8 @@
 (() => {
   const ROOT = '__root__';
   let DB = null;
-  const state = { scope: ROOT, selected: null, sortBy: 'votes', hideBN: false, filter: '' };
+  const state = { scope: ROOT, selected: null, sortBy: 'votes', hideBN: false, filter: '', compare: [] };
+  const CMP_COLORS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)'];
 
   // ========== DESCUBRIMIENTO DE SNAPSHOTS ==========
   // Lista archivos onpe_data_*.json en la misma carpeta vía GitHub API.
@@ -390,7 +433,12 @@
       const sel=state.selected===r.code?'sel':'';
       let dtx='—',dcl='flat'; if(r.delta!=null){ if(r.delta>0){dtx='+'+fmtS(r.delta);dcl='up';} else if(r.delta<0){dtx=fmtS(r.delta);dcl='down';} else dtx='0'; }
       const wtxt=scN>0?(r.wins>0?`<b>${r.wins}</b>/${scN}`:`${r.wins}/${scN}`):'—';
+      const cmpIdx=state.compare.indexOf(r.code);
+      const cmpOn=cmpIdx>=0;
+      const cmpDisabled = !cmpOn && state.compare.length>=4;
+      const cmpColor = cmpOn ? CMP_COLORS[cmpIdx] : '';
       return `<div class="crow ${cls} ${sel}" data-code="${r.code}">
+        <div class="cell" style="display:flex;justify-content:center;align-items:center"><span class="cmpbox ${cmpOn?'on':''} ${cmpDisabled?'disabled':''}" data-cmp="${r.code}" style="--cmpc:${cmpColor}" title="${cmpOn?'quitar de comparación':cmpDisabled?'máximo 4':'agregar a comparación'}"></span></div>
         <div class="cell rank">${idx+1}</div>
         <div class="cell who"><span class="nm">${r.cand.cand?shortName(r.cand.cand):r.cand.agr.toLowerCase()}</span><span class="ag">${r.cand.agr.toLowerCase()}</span></div>
         <div class="cell num">${fmt(r.v)}</div>
@@ -401,7 +449,19 @@
       </div>`;
     }).join('');
     document.getElementById('clist').innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--muted)">sin resultados</div>';
-    document.getElementById('clist').querySelectorAll('.crow').forEach(el=>el.onclick=()=>{state.selected=el.dataset.code; renderDetail(); renderCList(); renderTList();});
+    document.getElementById('clist').querySelectorAll('.crow').forEach(el=>el.onclick=(ev)=>{
+      if(ev.target.closest('.cmpbox')) return; // el checkbox tiene su propio handler
+      state.selected=el.dataset.code; renderDetail(); renderCList(); renderTList();
+    });
+    document.getElementById('clist').querySelectorAll('.cmpbox').forEach(el=>el.onclick=(ev)=>{
+      ev.stopPropagation();
+      if(el.classList.contains('disabled')) return;
+      const code=el.dataset.cmp;
+      const i=state.compare.indexOf(code);
+      if(i>=0) state.compare.splice(i,1);
+      else if(state.compare.length<4) state.compare.push(code);
+      renderCList(); renderCompare();
+    });
   }
   function renderTList(){
     const children=childrenOf(state.scope); const n=DB.nodes[state.scope]; const nv=n.nivel;
@@ -467,7 +527,170 @@
       <div class="dp-section"><h3>volumen (top votos absolutos)</h3><div class="tlist">${topByVotes.map(x=>`<div class="ti ${x.rank===1?'win':''}" data-key="${x.k}"><span class="nm">${x.nm} <span class="badge-rank ${x.rank===1?'r1':''}">${x.rank?'#'+x.rank:'—'}</span></span><span class="vt">${fmt(x.v)}</span><span class="pc">${x.pc!=null?x.pc.toFixed(1)+'%':'—'}</span></div>`).join('')}</div></div>`:''}`;
     dp.querySelectorAll('.ti').forEach(el=>el.onclick=()=>{ if(el.dataset.key){ state.scope=el.dataset.key; renderAll(); } });
   }
-  function renderAll(){ renderCrumbs(); renderSnaps(); renderSummary(); renderCList(); renderTList(); renderDetail(); }
+  function renderCompare(){
+    const panel = document.getElementById('cmpPanel');
+    const body  = document.getElementById('cmpBody');
+    const meta  = document.getElementById('cmpMeta');
+    const sel = state.compare;
+    if(sel.length<2){
+      if(sel.length===0){ panel.style.display='none'; return; }
+      // 1 seleccionadx: mostrar hint para agregar más
+      panel.style.display='';
+      meta.textContent = `${sel.length} seleccionadx · marca 1 más`;
+      const c = candByCode(sel[0]);
+      body.innerHTML = `<div class="cmp-empty">tienes 1 candidatx marcadx (<b style="color:${CMP_COLORS[0]}">${shortName(c.cand||c.agr)}</b>) · marca 1-3 más para comparar</div>`;
+      return;
+    }
+    panel.style.display='';
+    const i = last();
+    const scopeName = DB.nodes[state.scope].nombre || 'PERÚ';
+    const totV = totalValidVotesAt(state.scope, i);
+    meta.textContent = `${sel.length} candidatxs · en ${scopeName}`;
+
+    // legend chips (click para quitar)
+    const legend = sel.map((code,idx) => {
+      const c = candByCode(code);
+      return `<div class="cmp-chip" data-remove="${code}" title="click para quitar">
+        <span class="dot" style="background:${CMP_COLORS[idx]}"></span>
+        <span>${shortName(c.cand||c.agr)}</span>
+        <span class="x">×</span>
+      </div>`;
+    }).join('') + `<div class="cmp-chip" id="cmpClear" style="color:var(--muted)" title="limpiar todo"><span>limpiar</span></div>`;
+
+    // valores actuales
+    const valuesData = sel.map((code,idx) => {
+      const c = candByCode(code);
+      const v = votesAt(state.scope,code,i) || 0;
+      const pc = (totV>0 && !isBN(c.agr)) ? v/totV*100 : null;
+      return {code, cand:c, idx, v, pc};
+    });
+    const maxV = Math.max(...valuesData.map(x=>x.v), 1);
+    const sortedByV = [...valuesData].sort((a,b)=>b.v-a.v);
+    const leader = sortedByV[0];
+
+    const barsHTML = sortedByV.map(x => `
+      <div class="cmp-bar">
+        <span class="nm" style="color:${CMP_COLORS[x.idx]}">${shortName(x.cand.cand||x.cand.agr)}</span>
+        <div class="track"><span style="width:${x.v/maxV*100}%;--cmpc:${CMP_COLORS[x.idx]}"></span></div>
+        <span class="val">${fmt(x.v)} ${x.pc!=null?`· ${x.pc.toFixed(1)}%`:''}</span>
+      </div>`).join('');
+
+    // márgenes: cada unx vs el líder, y además pares consecutivos
+    const marginsHTML = sortedByV.slice(1).map(x => {
+      const diff = leader.v - x.v;
+      const pp = (leader.pc!=null && x.pc!=null) ? (leader.pc - x.pc) : null;
+      return `<div class="mg"><span><b style="color:${CMP_COLORS[leader.idx]}">${shortName(leader.cand.cand||leader.cand.agr)}</b> sobre <b style="color:${CMP_COLORS[x.idx]}">${shortName(x.cand.cand||x.cand.agr)}</b></span><span class="delta">+${fmt(diff)}${pp!=null?` · +${pp.toFixed(2)}pp`:''}</span></div>`;
+    }).join('');
+
+    // trayectoria superpuesta
+    function buildTraj(){
+      const w=560, h=140, pad=24;
+      const nSnaps = DB.snapshots.length;
+      const seriesAll = sel.map(code => DB.snapshots.map((_,j)=>votesAt(state.scope,code,j)??0));
+      const maxAll = Math.max(...seriesAll.flat(), 1);
+      const minAll = Math.min(...seriesAll.flat(), 0);
+      const rng = (maxAll-minAll)||1;
+      const xOf = j => pad + (nSnaps===1 ? (w-pad*2)/2 : (j/(nSnaps-1))*(w-pad*2));
+      const yOf = v => h-pad - ((v-minAll)/rng)*(h-pad*2);
+      // grid + snapshot labels
+      const snapLabels = DB.snapshots.map((s,j) => `<text x="${xOf(j)}" y="${h-6}" text-anchor="middle" font-size="9" fill="#aaa">s${j} · ${s.label.split(' ').slice(0,2).join(' ')}</text>`).join('');
+      // líneas por candidatx
+      const lines = seriesAll.map((s,idx) => {
+        const pts = s.map((v,j)=>[xOf(j),yOf(v)]);
+        if(nSnaps<2){
+          const p = pts[0];
+          return `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${CMP_COLORS[idx].replace('var(--c'+(idx+1)+')',['#5a7a3a','#b45a1f','#3a5a7a','#7a3a5a'][idx])}"/>`;
+        }
+        const d = pts.map((p,j)=>j?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
+        const color = ['#5a7a3a','#b45a1f','#3a5a7a','#7a3a5a'][idx];
+        const dots = pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${color}"/>`).join('');
+        return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}`;
+      }).join('');
+      // valores del último snapshot como etiquetas
+      const endLabels = seriesAll.map((s,idx) => {
+        const lastV = s[s.length-1];
+        const y = yOf(lastV);
+        const color = ['#5a7a3a','#b45a1f','#3a5a7a','#7a3a5a'][idx];
+        return `<text x="${w-pad+4}" y="${y+3}" font-size="9" fill="${color}" font-weight="500">${fmtS(lastV)}</text>`;
+      }).join('');
+      return `<svg class="cmp-traj" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+        <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#eee" stroke-width="1"/>
+        ${snapLabels}${lines}${endLabels}
+      </svg>`;
+    }
+
+    // cabeza a cabeza: entre lxs seleccionadxs, quién gana en cada hijo
+    const children = childrenOf(state.scope);
+    let h2hHTML = '';
+    if(children.length>0){
+      const wins = sel.map(()=>0);
+      let otherWins = 0;
+      const byWinner = sel.map(()=>[]);
+      for(const ch of children){
+        const vs = DB.data[ch]?.[i]?.votes || {};
+        // entre lxs seleccionadxs
+        let best=-1, bv=-1;
+        for(let s=0; s<sel.length; s++){
+          const vv = vs[sel[s]] || 0;
+          if(vv>bv){ bv=vv; best=s; }
+        }
+        if(best>=0){
+          wins[best]++;
+          byWinner[best].push({nm:DB.nodes[ch].nombre, v:bv});
+        }
+        // comparación con ganador real
+        const realWin = winnerAt(ch, i);
+        if(realWin && !sel.includes(realWin)) otherWins++;
+      }
+      h2hHTML = `
+        <div class="cmp-h2h">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">en cada ${DB.nodes[state.scope].nivel==='nacional'?'depto':DB.nodes[state.scope].nivel==='departamento'?'provincia':'distrito'}, quién va por delante entre lxs seleccionadxs:</div>
+          ${sel.map((code,idx)=>{
+            const c = candByCode(code);
+            const sampleNames = byWinner[idx].slice(0,4).map(x=>x.nm).join(', ');
+            return `<div class="row" title="${sampleNames}">
+              <span class="d" style="background:${CMP_COLORS[idx]}"></span>
+              <span><b>${shortName(c.cand||c.agr)}</b> ${sampleNames?`<span style="color:var(--muted);font-size:10px">· ${sampleNames}${byWinner[idx].length>4?'…':''}</span>`:''}</span>
+              <span class="n">${wins[idx]}/${children.length}</span>
+            </div>`;
+          }).join('')}
+          ${otherWins>0?`<div class="row" style="color:var(--muted)"><span class="d" style="background:#ddd"></span><span><i>otrxs candidatxs no seleccionadxs ganan realmente</i></span><span class="n">${otherWins}/${children.length}</span></div>`:''}
+        </div>`;
+    }
+
+    body.innerHTML = `
+      <div class="cmp-legend">${legend}</div>
+      <div class="cmp-hint">comparando en <b>${scopeName}</b> · click cualquier chip para quitar · cambia de territorio en el breadcrumb para recomparar ahí</div>
+      <div class="cmp-sections">
+        <div>
+          <h3>valores actuales · snapshot ${last()}</h3>
+          <div class="cmp-bars">${barsHTML}</div>
+          <h3 style="margin-top:14px">márgenes</h3>
+          <div class="cmp-margins">${marginsHTML || '<div style="color:var(--muted);font-size:11px">—</div>'}</div>
+        </div>
+        <div>
+          <h3>trayectorias superpuestas</h3>
+          ${buildTraj()}
+          ${DB.snapshots.length<2?'<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center">con 1 snapshot no hay trayectoria todavía</div>':''}
+        </div>
+        ${children.length>0?`<div style="grid-column:1/-1">
+          <h3>cabeza a cabeza territorial</h3>
+          ${h2hHTML}
+        </div>`:''}
+      </div>`;
+
+    // handlers
+    body.querySelectorAll('[data-remove]').forEach(el => el.onclick = () => {
+      const code = el.dataset.remove;
+      const i = state.compare.indexOf(code);
+      if(i>=0) state.compare.splice(i,1);
+      renderCList(); renderCompare();
+    });
+    const clr = document.getElementById('cmpClear');
+    if(clr) clr.onclick = () => { state.compare = []; renderCList(); renderCompare(); };
+  }
+
+  function renderAll(){ renderCrumbs(); renderSnaps(); renderSummary(); renderCList(); renderTList(); renderDetail(); renderCompare(); }
 
   // ========== BOOT ==========
   async function boot(){

@@ -783,11 +783,6 @@
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
     `;
 
-    const frame = `
-      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
-      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
-    `;
-
     // línea Castillo 2021 (baseline histórica) — solo si está activada, modo %, y hay dato
     let castilloSVG = '';
     if(state.showCastillo && mode==='pct'){

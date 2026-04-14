@@ -1,6 +1,5 @@
 name: snapshot ONPE
 
-# Dispara: manual (para pruebas) y cron comentado (activar cuando funcione)
 on:
   workflow_dispatch:
     inputs:
@@ -14,14 +13,14 @@ on:
           - 'true'
   # DESCOMENTAR CUANDO YA SEPAS QUE FUNCIONA:
   # schedule:
-  #   - cron: '*/30 * * * *'  # cada 30 minutos (hora UTC)
+  #   - cron: '*/30 * * * *'
 
 permissions:
-  contents: write  # necesario para que pueda pushear el snapshot
+  contents: write
 
 concurrency:
   group: snapshot-onpe
-  cancel-in-progress: false  # no cancelar el anterior si aún está corriendo
+  cancel-in-progress: false
 
 jobs:
   snapshot:
@@ -45,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow requests
+          pip install 'httpx[http2]' pandas pyarrow
 
       - name: Run scraper
         env:
@@ -54,11 +53,10 @@ jobs:
           set -e
           echo "incluir distritos: $INCLUIR_DIST"
           if [ "$INCLUIR_DIST" = "true" ]; then
-            python onpe_2026_scraper_v3.py --out ./_scraper_out
+            python onpe_scraper.py --out ./_scraper_out
           else
-            python onpe_2026_scraper_v3.py --out ./_scraper_out --no-distrito
+            python onpe_scraper.py --out ./_scraper_out --no-distrito
           fi
-          # encontrar el snapshot recién creado
           SNAP_DIR=$(ls -td ./_scraper_out/snapshot_* | head -1)
           echo "snapshot dir: $SNAP_DIR"
           echo "SNAP_DIR=$SNAP_DIR" >> $GITHUB_ENV
@@ -80,13 +78,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # añadir solo los JSON de snapshots (ignorar carpeta _scraper_out)
           git add 'onpe_data_*.json' || true
-          # si hay cambios (nuevo snapshot o retención borró algo), commitear
           if git diff --cached --quiet; then
             echo "sin cambios — el avance probablemente no cambió"
           else
-            # extraer el avance del archivo más reciente para el mensaje
             LATEST=$(ls -t onpe_data_*.json | head -1)
             AVANCE=$(echo "$LATEST" | sed -E 's/.*_([0-9]+\.[0-9]+)pct\.json/\1/')
             TS_UTC=$(date -u '+%Y-%m-%d %H:%M UTC')

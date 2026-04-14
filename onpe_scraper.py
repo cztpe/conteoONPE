@@ -448,9 +448,18 @@ async def run_snapshot(out_dir: pathlib.Path,
         df_cand["snapshot_utc"] = ts.isoformat()
 
         df_tot.to_csv(snap_dir / "totales.csv", index=False)
-        df_tot.to_parquet(snap_dir / "totales.parquet", index=False)
         df_cand.to_csv(snap_dir / "candidatos.csv", index=False)
-        df_cand.to_parquet(snap_dir / "candidatos.parquet", index=False)
+        # parquet opcional: normaliza columna codigoAgrupacionPolitica a string
+        # para evitar error de tipo mixto en pyarrow
+        try:
+            df_tot_p = df_tot.copy()
+            df_cand_p = df_cand.copy()
+            if 'codigoAgrupacionPolitica' in df_cand_p.columns:
+                df_cand_p['codigoAgrupacionPolitica'] = df_cand_p['codigoAgrupacionPolitica'].astype(str)
+            df_tot_p.to_parquet(snap_dir / "totales.parquet", index=False)
+            df_cand_p.to_parquet(snap_dir / "candidatos.parquet", index=False)
+        except Exception as e:
+            print(f"  ⚠ parquet falló (no crítico): {e}")
 
         with open(snap_dir / "raw_nacional.json", "w", encoding="utf-8") as f:
             json.dump(nac, f, ensure_ascii=False, indent=2, default=str)

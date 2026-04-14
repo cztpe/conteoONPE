@@ -149,8 +149,14 @@
   .duelo-creator button:hover{border-color:var(--accent);color:var(--accent)}
   .duelo-lead{font-size:11px;color:var(--muted);padding:0 14px 2px}
   .duelo-lead b{font-weight:500}
-  .duelo-foot{border-top:1px solid var(--line);padding:8px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);align-items:center}
-  .duelo-foot .lead{font-weight:500}
+  .duelo-foot-grid{border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line)}
+  .df-stat{background:#fff;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .df-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .df-lbl .d{width:8px;height:8px;display:inline-block;flex-shrink:0}
+  .df-val{font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .df-val .df-dlt{font-size:11px;font-weight:400;margin-left:4px}
+  .df-sub{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:700px){.duelo-foot-grid{grid-template-columns:1fr}}
 
   /* browser */
   .browser{margin-top:30px;border:1px solid var(--line);background:#fff}
@@ -913,7 +919,7 @@
   }
   function buildDuelChart(duelo){
     const W=1200, H=240;
-    const padL=64, padR=100, padT=18, padB=36;
+    const padL=52, padR=90, padT=18, padB=36;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
     const aIdx = activeIndices();
@@ -921,27 +927,30 @@
     const n = aSnaps.length;
     const mode = state.yMode;
 
-    // series de diferencias (A - B)
-    const diffs = aIdx.map(oi => valueAt(duelo.place, duelo.a, oi, mode) - valueAt(duelo.place, duelo.b, oi, mode));
+    // dos series: valores absolutos de A y B
+    const seriesA = aIdx.map(oi => valueAt(duelo.place, duelo.a, oi, mode));
+    const seriesB = aIdx.map(oi => valueAt(duelo.place, duelo.b, oi, mode));
+    const all = [...seriesA, ...seriesB];
+    const hi = Math.max(...all, 1);
+    const lo = Math.min(...all, 0);
+    // padding de escala: no ir desde 0, enfocar en la zona donde estan
+    const span = hi - lo;
+    const yMin = Math.max(0, lo - span*0.15);
+    const yMax = hi + span*0.15;
 
-    const absMax = Math.max(...diffs.map(Math.abs), mode==='pct'?1:100);
-    const yRange = absMax * 1.15;
     const xOf = i => n===1 ? padL + innerW/2 : padL + (i/(n-1))*innerW;
-    const zeroY = padT + innerH/2;
-    const yOf = v => zeroY - (v/yRange)*(innerH/2);
+    const yOf = v => padT + innerH - ((v-yMin)/(yMax-yMin))*innerH;
 
-    // ticks verticales
-    const nTicks = 4;
-    const yTicksSVG = [];
-    for(let t=-nTicks; t<=nTicks; t++){
-      const v = (yRange/nTicks)*t;
-      const y = yOf(v);
-      const isZero = t===0;
-      yTicksSVG.push(`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${isZero?'#888':'#f4f4f4'}" stroke-width="${isZero?1.2:1}" ${isZero?'stroke-dasharray="3,3"':''}/>
-        <text x="${padL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="${isZero?'#555':'#999'}" font-weight="${isZero?'500':'400'}">${mode==='pct'?(v>0?'+':'')+v.toFixed(1)+'pp':(v>0?'+':'')+fmtS(v)}</text>`);
-    }
+    // ticks y
+    const nTicks = 5;
+    const yTicks = [];
+    for(let i=0;i<=nTicks;i++){ const v = yMin + ((yMax-yMin)/nTicks)*i; yTicks.push({v, y:yOf(v)}); }
+    const yTicksSVG = yTicks.map(t=>`
+      <line x1="${padL}" y1="${t.y}" x2="${W-padR}" y2="${t.y}" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(1)+'%':fmtS(t.v)}</text>
+    `).join('');
 
-    // ticks horizontales
+    // ticks x
     const xTicksSVG = aSnaps.map((s,i)=>{
       const x = xOf(i); const oi = aIdx[i];
       return `<text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${oi}</text>
@@ -949,39 +958,49 @@
     }).join('');
 
     const ca = colorForCastCode(duelo.a), cb = colorForCastCode(duelo.b);
-    // etiquetas laterales A (arriba) B (abajo)
-    const sideLabels = `
-      <text x="${padL-6}" y="${padT+10}" text-anchor="end" font-size="9" fill="${ca}" font-weight="500">↑ ${displayName(duelo.a).split(' ')[0]}</text>
-      <text x="${padL-6}" y="${H-padB-4}" text-anchor="end" font-size="9" fill="${cb}" font-weight="500">↓ ${displayName(duelo.b).split(' ')[0]}</text>
-    `;
 
-    // línea + dots + área rellenada
-    let linesSVG='';
-    if(n===1){
-      const p = [xOf(0), yOf(diffs[0])];
-      const col = diffs[0]>=0?ca:cb;
-      linesSVG = `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${col}"/>
-                  <text x="${p[0]+8}" y="${p[1]+3}" font-size="11" fill="${col}" font-weight="500">${mode==='pct'?(diffs[0]>0?'+':'')+diffs[0].toFixed(2)+'pp':(diffs[0]>0?'+':'')+fmt(diffs[0])}</text>`;
-    } else {
-      const pts = diffs.map((v,i)=>[xOf(i),yOf(v)]);
-      // área: arriba del 0 con color A, abajo con color B
-      const areaTop = pts.map((p,i)=>{
-        const pc = (p[1]<zeroY) ? p : [p[0], zeroY]; // clip arriba
-        return i?`L${pc[0]},${pc[1]}`:`M${pc[0]},${pc[1]}`;
-      }).join(' ') + ` L${pts[pts.length-1][0]},${zeroY} L${pts[0][0]},${zeroY} Z`;
-      const areaBot = pts.map((p,i)=>{
-        const pc = (p[1]>zeroY) ? p : [p[0], zeroY];
-        return i?`L${pc[0]},${pc[1]}`:`M${pc[0]},${pc[1]}`;
-      }).join(' ') + ` L${pts[pts.length-1][0]},${zeroY} L${pts[0][0]},${zeroY} Z`;
-      // simplificación: fill por-segmento es complicado; uso un único área transparente, el signo se ve por la línea
-      const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
-      const dots = pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${diffs[i]>=0?ca:cb}"/>`).join('');
-      const endP = pts[pts.length-1];
-      const endV = diffs[diffs.length-1];
-      const endCol = endV>=0?ca:cb;
-      const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="11" fill="${endCol}" font-weight="500">${mode==='pct'?(endV>0?'+':'')+endV.toFixed(2)+'pp':(endV>0?'+':'')+fmtS(endV)}</text>`;
-      linesSVG = `<path d="${d}" fill="none" stroke="#333" stroke-width="1.6" stroke-linejoin="round"/>${dots}${endLabel}`;
+    // puntos
+    const ptsA = seriesA.map((v,i)=>[xOf(i), yOf(v)]);
+    const ptsB = seriesB.map((v,i)=>[xOf(i), yOf(v)]);
+
+    // área sombreada entre las líneas (la "zona de disputa")
+    let gapArea = '';
+    if(n>=2){
+      // cerrar el polígono: A ida + B vuelta
+      const upper = ptsA.map((p,i) => (i?'L':'M')+p[0]+','+p[1]).join(' ');
+      const lower = ptsB.slice().reverse().map(p => 'L'+p[0]+','+p[1]).join(' ');
+      gapArea = `<path d="${upper} ${lower} Z" fill="#5a7a3a" fill-opacity="0.06"/>`;
     }
+
+    // líneas
+    let linesSVG = '';
+    if(n===1){
+      const pa = ptsA[0], pb = ptsB[0];
+      linesSVG = `
+        <circle cx="${pa[0]}" cy="${pa[1]}" r="4" fill="${ca}"/>
+        <text x="${pa[0]+8}" y="${pa[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[0].toFixed(2)+'%':fmtS(seriesA[0])}</text>
+        <circle cx="${pb[0]}" cy="${pb[1]}" r="4" fill="${cb}"/>
+        <text x="${pb[0]+8}" y="${pb[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[0].toFixed(2)+'%':fmtS(seriesB[0])}</text>`;
+    } else {
+      const drawLine = (pts, color) => {
+        const d = pts.map((p,i) => (i?'L':'M')+p[0]+','+p[1]).join(' ');
+        const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${color}"/>`).join('');
+        return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>${dots}`;
+      };
+      const endA = ptsA[ptsA.length-1], endB = ptsB[ptsB.length-1];
+      const lblA = `<text x="${endA[0]+6}" y="${endA[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[seriesA.length-1].toFixed(2)+'%':fmtS(seriesA[seriesA.length-1])}</text>`;
+      const lblB = `<text x="${endB[0]+6}" y="${endB[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[seriesB.length-1].toFixed(2)+'%':fmtS(seriesB[seriesB.length-1])}</text>`;
+      linesSVG = drawLine(ptsA, ca) + drawLine(ptsB, cb) + lblA + lblB;
+    }
+
+    // etiquetas de nombre al inicio del gráfico
+    const nmA = `<text x="${padL+4}" y="${ptsA[0][1]-6}" font-size="9" fill="${ca}" font-weight="500">${displayName(duelo.a).split(' ')[0]}</text>`;
+    const nmB = `<text x="${padL+4}" y="${ptsB[0][1]-6}" font-size="9" fill="${cb}" font-weight="500">${displayName(duelo.b).split(' ')[0]}</text>`;
+
+    const frame = `
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
+    `;
 
     const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
     const hitW = n>1 ? innerW/(n-1) : innerW;
@@ -992,13 +1011,8 @@
       return `<rect class="hit-duel" x="${hx}" y="${padT}" width="${hw}" height="${innerH}" fill="transparent" data-duel-a="${duelo.a}" data-duel-b="${duelo.b}" data-place="${duelo.place}" data-snap="${oi}" data-cx="${cx}" style="cursor:crosshair"/>`;
     }).join('');
 
-    const frame = `
-      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
-      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
-    `;
-
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-      ${yTicksSVG.join('')}${xTicksSVG}${sideLabels}${frame}${linesSVG}${crosshair}${hits}
+      ${yTicksSVG}${xTicksSVG}${gapArea}${frame}${linesSVG}${nmA}${nmB}${crosshair}${hits}
     </svg>`;
   }
 
@@ -1008,30 +1022,68 @@
     const firstI = aIdx.length ? aIdx[0] : 0;
     const mode = state.yMode;
     const placeName = DB.nodes[duelo.place]?.nombre || 'PERÚ';
-    const curr = valueAt(duelo.place, duelo.a, lastI, mode) - valueAt(duelo.place, duelo.b, lastI, mode);
-    const first = valueAt(duelo.place, duelo.a, firstI, mode) - valueAt(duelo.place, duelo.b, firstI, mode);
-    const evol = curr - first;
     const ca = colorForCastCode(duelo.a), cb = colorForCastCode(duelo.b);
-    const leader = curr>=0 ? duelo.a : duelo.b;
-    const leaderCol = curr>=0 ? ca : cb;
-    const absCurr = Math.abs(curr);
-    const absFirst = Math.abs(first);
-    const currStr = mode==='pct' ? absCurr.toFixed(2)+'pp' : fmt(Math.round(absCurr));
-    const firstStr = mode==='pct' ? absFirst.toFixed(2)+'pp' : fmt(Math.round(absFirst));
-    const evolStr = (evol>=0?'+':'') + (mode==='pct' ? evol.toFixed(2)+'pp' : fmtS(evol));
+
+    // valores actual e inicial
+    const aCurr = valueAt(duelo.place, duelo.a, lastI, mode);
+    const bCurr = valueAt(duelo.place, duelo.b, lastI, mode);
+    const aFirst = valueAt(duelo.place, duelo.a, firstI, mode);
+    const bFirst = valueAt(duelo.place, duelo.b, firstI, mode);
+    const aChange = aCurr - aFirst;
+    const bChange = bCurr - bFirst;
+
+    const marginCurr = aCurr - bCurr;
+    const marginFirst = aFirst - bFirst;
+    const marginChange = marginCurr - marginFirst;
+
+    const leaderCode = marginCurr>=0 ? duelo.a : duelo.b;
+    const leaderCol = marginCurr>=0 ? ca : cb;
+    const absMargin = Math.abs(marginCurr);
+    const marginStr = mode==='pct' ? absMargin.toFixed(2)+'pp' : fmt(Math.round(absMargin));
+
+    const fmtV = v => mode==='pct' ? v.toFixed(2)+'%' : fmt(Math.round(v));
+    const fmtDlt = d => mode==='pct'
+      ? (d>=0?'+':'')+d.toFixed(2)+'pp'
+      : (d>=0?'+':'')+fmtS(d);
+
+    // descripción del movimiento del margen
+    let trendStr, trendColor;
+    if(aIdx.length<2){ trendStr = 'sin evolución (solo 1 snapshot)'; trendColor='var(--muted)'; }
+    else if(Math.abs(marginChange) < (mode==='pct'?0.05:50)){ trendStr = 'estable desde el inicio'; trendColor='var(--muted)'; }
+    else {
+      // crece si el líder se aleja, baja si se acerca el 2°
+      const leaderGaining = (marginCurr>=0 && marginChange>0) || (marginCurr<0 && marginChange<0);
+      trendStr = leaderGaining
+        ? `${displayName(leaderCode).split(' ')[0]} amplía ventaja (${fmtDlt(Math.abs(marginChange))})`
+        : `se acorta la ventaja de ${displayName(leaderCode).split(' ')[0]} (${fmtDlt(-Math.abs(marginChange))})`;
+      trendColor = leaderGaining ? 'var(--accent)' : 'var(--down)';
+    }
+
     return `<div class="card" data-duel-idx="${idx}">
       <div class="card-head">
         <div class="card-title">
           <div class="nm"><span style="color:${ca}">${displayName(duelo.a)}</span> <span style="color:var(--muted)">vs</span> <span style="color:${cb}">${displayName(duelo.b)}</span></div>
-          <div class="meta">en <b>${placeName}</b> · líder: <b style="color:${leaderCol}">${displayName(leader)}</b> por <b>${currStr}</b></div>
+          <div class="meta">en <b>${placeName}</b> · <b style="color:${leaderCol}">${displayName(leaderCode)}</b> lidera por <b>${marginStr}</b></div>
         </div>
         <div class="card-actions"><button data-act="rm-duel">×</button></div>
       </div>
       <div class="chart-wrap">${buildDuelChart(duelo)}</div>
-      <div class="duelo-foot">
-        <span>actual: <span class="lead" style="color:${leaderCol}">${currStr} para ${displayName(leader).split(' ')[0]}</span></span>
-        <span>inicial (s${firstI}): ${firstStr}</span>
-        <span>evolución: <b style="color:${evol>0?'var(--accent)':evol<0?'var(--down)':'var(--muted)'}">${evolStr}</b></span>
+      <div class="duelo-foot-grid">
+        <div class="df-stat">
+          <div class="df-lbl"><span class="d" style="background:${ca}"></span>${displayName(duelo.a)}</div>
+          <div class="df-val">${fmtV(aCurr)} <span class="df-dlt" style="color:${aChange>=0?'var(--accent)':'var(--down)'}">${aIdx.length>=2?fmtDlt(aChange):''}</span></div>
+          <div class="df-sub">inicial (s${firstI}): ${fmtV(aFirst)}</div>
+        </div>
+        <div class="df-stat">
+          <div class="df-lbl"><span class="d" style="background:${cb}"></span>${displayName(duelo.b)}</div>
+          <div class="df-val">${fmtV(bCurr)} <span class="df-dlt" style="color:${bChange>=0?'var(--accent)':'var(--down)'}">${aIdx.length>=2?fmtDlt(bChange):''}</span></div>
+          <div class="df-sub">inicial (s${firstI}): ${fmtV(bFirst)}</div>
+        </div>
+        <div class="df-stat">
+          <div class="df-lbl" style="color:var(--muted)">margen actual</div>
+          <div class="df-val" style="color:${leaderCol}">${marginStr} → ${displayName(leaderCode).split(' ')[0]}</div>
+          <div class="df-sub" style="color:${trendColor}">${trendStr}</div>
+        </div>
       </div>
     </div>`;
   }

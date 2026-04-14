@@ -38,6 +38,18 @@
   .snap[data-ts]{cursor:pointer}
   .snap[data-ts]:hover{border-color:var(--accent);color:var(--accent)}
 
+  /* informe */
+  .informe{border:1px solid var(--line);background:#fff;margin-bottom:14px}
+  .informe h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .informe h2 .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
+  .informe-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line)}
+  .info-card{background:#fff;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-height:70px}
+  .info-title{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500}
+  .info-value{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .info-value .up{color:var(--accent)}
+  .info-value .down{color:var(--down)}
+  .info-sub{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
   /* legend */
   .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:#fcfcfc}
   .leg{display:flex;align-items:center;gap:8px;padding:3px 8px;border:1px solid transparent;cursor:pointer;font-size:12px}
@@ -112,15 +124,17 @@
   .card-foot .cv .dlt.down{color:var(--down)}
   .card-foot .cv .dlt.flat{color:var(--faint)}
 
-  .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:8px 11px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .08s;line-height:1.5;font-family:'Fira Code',monospace}
+  .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:7px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .08s;line-height:1.45;font-family:'Fira Code',monospace;min-width:260px}
   .tooltip.on{opacity:1}
   .tooltip b{color:#fff}
-  .tooltip .tt-head{font-size:10px;color:#aaa;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid #333}
-  .tooltip .tt-row{display:grid;grid-template-columns:10px 1fr auto auto;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
-  .tooltip .tt-row .d{width:8px;height:8px;display:inline-block}
-  .tooltip .tt-row .nm{color:#ddd}
-  .tooltip .tt-row .v{color:#fff;padding-left:10px}
-  .tooltip .tt-row .p{color:#aaa;padding-left:6px}
+  .tooltip .tt-head{font-size:10px;color:#bbb;padding-bottom:4px;margin-bottom:5px;border-bottom:1px solid #333}
+  .tooltip .tt-row{display:grid;grid-template-columns:8px 1fr 55px 34px;gap:6px;align-items:center;font-variant-numeric:tabular-nums;padding:1px 0}
+  .tooltip .tt-row .d{width:7px;height:7px;display:inline-block}
+  .tooltip .tt-row .nm{color:#ddd;overflow:hidden;text-overflow:ellipsis}
+  .tooltip .tt-row .v{color:#fff;text-align:right}
+  .tooltip .tt-row .dlt{color:#888;font-size:10px;text-align:right}
+  .tooltip .tt-row .dlt.up{color:#8ab870}
+  .tooltip .tt-row .dlt.down{color:#d88860}
   .tooltip .tt-row.hl .nm{color:#fff;font-weight:500}
 
   .empty-hint{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line-strong);background:#fafafa}
@@ -169,6 +183,12 @@
 
   <div id="app" style="display:none">
     <div class="snaps" id="snaps"></div>
+
+    <div class="informe">
+      <h2>informe <span class="meta" id="informeMeta">—</span></h2>
+      <div class="informe-grid" id="informeGrid"></div>
+    </div>
+
     <div class="legend" id="legend"></div>
     <div class="castpick" id="castpick">
       <h3>candidatxs disponibles · click para añadir al cast (máx 12)</h3>
@@ -426,11 +446,11 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderInforme(); renderGrid(); renderDuelos();
     });
     document.getElementById('snapsAll').onclick = () => {
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderGrid(); renderDuelos();
+      persist(); renderSnaps(); renderInforme(); renderGrid(); renderDuelos();
     };
   }
   function renderLegend(){
@@ -451,7 +471,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme();
         return;
       }
       const code = ln.dataset.code;
@@ -661,31 +681,36 @@
       const svg = hit.ownerSVGElement;
       const crosshair = svg.querySelector('.crosshair');
       hit.addEventListener('mouseenter', () => {
-        // crosshair ON
         crosshair.setAttribute('x1', cx);
         crosshair.setAttribute('x2', cx);
         crosshair.setAttribute('opacity', '0.5');
-        // build tooltip
         const snap = DB.snapshots[sn];
         const placeName = DB.nodes[place].nombre || 'PERÚ';
         const t = totalValidVotesAt(place, sn);
-        const rows = state.cast.map((code, idx) => {
+        // recolectar filas con valor primario según yMode, ordenar desc
+        const rowData = state.cast.map((code, idx) => {
           const c = candByCode(code);
-          if(!c) return '';
+          if(!c) return null;
           const v = votesAt(place, code, sn) || 0;
           const pc = t>0 ? (v/t*100) : 0;
           const prevV = sn>0 ? (votesAt(place, code, sn-1) || 0) : null;
           const delta = prevV!=null ? v - prevV : null;
+          const primary = state.yMode==='pct' ? pc : v;
+          return {code, idx, v, pc, delta, primary, c};
+        }).filter(x=>x!==null).sort((a,b)=> b.primary - a.primary);
+
+        const rows = rowData.map(r => {
+          const primaryStr = state.yMode==='pct' ? r.pc.toFixed(2)+'%' : fmt(r.v);
           let dlt = '';
-          if(delta!=null){
-            if(delta>0) dlt = `<span class="p" style="color:#8ab870">+${fmtS(delta)}</span>`;
-            else if(delta<0) dlt = `<span class="p" style="color:#d88860">${fmtS(delta)}</span>`;
-            else dlt = `<span class="p">0</span>`;
-          }
-          const hl = state.highlighted===code ? 'hl' : '';
-          return `<div class="tt-row ${hl}"><span class="d" style="background:${K_COLORS[idx]}"></span><span class="nm">${displayName(code)}</span><span class="v">${fmt(v)}</span><span class="p">${pc.toFixed(2)}%</span>${dlt?'&nbsp;&nbsp;'+dlt:''}</div>`;
+          if(r.delta!=null){
+            if(r.delta>0) dlt = `<span class="dlt up">+${fmtS(r.delta)}</span>`;
+            else if(r.delta<0) dlt = `<span class="dlt down">${fmtS(r.delta)}</span>`;
+            else dlt = `<span class="dlt">0</span>`;
+          } else dlt = '<span class="dlt">—</span>';
+          const hl = state.highlighted===r.code ? 'hl' : '';
+          return `<div class="tt-row ${hl}"><span class="d" style="background:${K_COLORS[r.idx]}"></span><span class="nm">${displayName(r.code)}</span><span class="v">${primaryStr}</span>${dlt}</div>`;
         }).join('');
-        tip.innerHTML = `<div class="tt-head"><b>${placeName}</b> · s${sn} · ${snap.label} · avance ${pct(snap.avance)}</div>${rows}`;
+        tip.innerHTML = `<div class="tt-head"><b>${placeName}</b> · s${sn} · ${snap.label} · ${pct(snap.avance)}</div>${rows}`;
         tip.classList.add('on');
       });
       hit.addEventListener('mousemove', (e) => {
@@ -746,6 +771,134 @@
       box.style.display='none';
       persist(); renderGrid(); renderBrowser(); renderDuelos();
     });
+  }
+
+  // ---------- informe ----------
+  function renderInforme(){
+    const grid = document.getElementById('informeGrid');
+    const meta = document.getElementById('informeMeta');
+    const aIdx = activeIndices();
+    if(aIdx.length===0){ grid.innerHTML = '<div class="info-card" style="grid-column:1/-1;color:var(--muted);font-style:italic;text-align:center">sin snapshots activos</div>'; return; }
+    const lastI = aIdx[aIdx.length-1];
+    const firstI = aIdx[0];
+    const nac = DB.data[ROOT][lastI] || {};
+    const totV = totalValidVotesAt(ROOT, lastI);
+    const mode = state.yMode;
+
+    meta.textContent = `a nivel nacional · s${firstI} → s${lastI} · ${aIdx.length} snapshot(s) activos`;
+
+    // líder
+    const ranked = state.cast.map(code => ({code, v: votesAt(ROOT,code,lastI)||0, pc: totV>0?(votesAt(ROOT,code,lastI)||0)/totV*100:0}))
+                             .sort((a,b)=>b.v-a.v);
+    const leader = ranked[0];
+    const runner = ranked[1];
+    const leaderName = leader ? displayName(leader.code) : '—';
+    const marginV = leader && runner ? leader.v - runner.v : 0;
+    const marginPp = leader && runner ? leader.pc - runner.pc : 0;
+
+    // más sube / más cae (entre firstI y lastI, solo si hay 2+ activos)
+    let mostUp = null, mostDown = null;
+    if(aIdx.length >= 2){
+      for(const code of state.cast){
+        const d = valueAt(ROOT, code, lastI, mode) - valueAt(ROOT, code, firstI, mode);
+        if(mostUp===null || d > mostUp.d) mostUp = {code, d};
+        if(mostDown===null || d < mostDown.d) mostDown = {code, d};
+      }
+    }
+
+    // duelo más cerrado (entre candidatxs consecutivos en ranking)
+    let closest = null;
+    for(let i=0; i<ranked.length-1; i++){
+      const diff = ranked[i].v - ranked[i+1].v;
+      if(closest===null || diff < closest.diff) closest = {a: ranked[i], b: ranked[i+1], diff};
+    }
+
+    // votos procesados en la ventana activa
+    let nuevosVotos = null;
+    if(aIdx.length >= 2){
+      nuevosVotos = totalValidVotesAt(ROOT, lastI) - totalValidVotesAt(ROOT, firstI);
+    }
+
+    // territorios ganados por el líder
+    let depsLider = 0;
+    const deps = DB.nodes[ROOT].children;
+    for(const k of deps){
+      const d = DB.data[k][lastI]?.votes || {};
+      let best=null, bv=-1;
+      for(const [c,v] of Object.entries(d)){
+        const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+        if(v>bv){bv=v; best=c;}
+      }
+      if(best === leader?.code) depsLider++;
+    }
+
+    const fmtDelta = (d, m) => m==='pct' ? (d>=0?'+':'')+d.toFixed(2)+'pp' : (d>=0?'+':'')+fmtS(d);
+
+    const cards = [];
+    // 1. Líder
+    cards.push({
+      title: 'líder nacional',
+      value: `<span style="color:${leader?colorForCastCode(leader.code):'var(--fg)'}">${leaderName.split(' ').slice(-2).join(' ')}</span>`,
+      sub: leader ? `${leader.pc.toFixed(2)}% · ${fmt(leader.v)} votos` : ''
+    });
+    // 2. Margen sobre 2°
+    cards.push({
+      title: 'margen sobre 2°',
+      value: runner ? `+${marginPp.toFixed(2)}pp` : '—',
+      sub: runner ? `+${fmt(marginV)} votos · vs ${displayName(runner.code).split(' ').slice(-1)[0]}` : ''
+    });
+    // 3. Más sube
+    cards.push({
+      title: 'más crece',
+      value: mostUp ? `<span class="up">${displayName(mostUp.code).split(' ').slice(-2).join(' ')}</span>` : '—',
+      sub: mostUp ? `${fmtDelta(mostUp.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots'
+    });
+    // 4. Más baja
+    cards.push({
+      title: 'más cae',
+      value: mostDown ? `<span class="down">${displayName(mostDown.code).split(' ').slice(-2).join(' ')}</span>` : '—',
+      sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots'
+    });
+    // 5. Duelo más cerrado
+    cards.push({
+      title: 'duelo más cerrado',
+      value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
+      sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : ''
+    });
+    // 6. Deptos ganados por el líder
+    cards.push({
+      title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
+      value: `${depsLider} / 25`,
+      sub: depsLider>=13 ? 'mayoría territorial' : 'sin mayoría territorial'
+    });
+    // 7. Participación
+    cards.push({
+      title: 'participación',
+      value: `${(nac.part||0).toFixed(2)}%`,
+      sub: 'de ciudadanxs habilitadxs'
+    });
+    // 8. Avance de actas
+    cards.push({
+      title: 'avance de actas',
+      value: `${(nac.av||0).toFixed(2)}%`,
+      sub: `${fmt(nac.cont)} / ${fmt(nac.total)}`
+    });
+    // 9. Votos nuevos contabilizados
+    if(nuevosVotos !== null){
+      cards.push({
+        title: 'votos nuevos contabilizados',
+        value: fmtS(nuevosVotos),
+        sub: `entre s${firstI} → s${lastI} (válidos)`
+      });
+    }
+
+    grid.innerHTML = cards.map(c => `
+      <div class="info-card">
+        <div class="info-title">${c.title}</div>
+        <div class="info-value">${c.value}</div>
+        <div class="info-sub">${c.sub}</div>
+      </div>
+    `).join('');
   }
 
   // ---------- duelos ----------
@@ -1012,7 +1165,7 @@
       document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
         state.yMode = b.dataset.mode;
         document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
-        persist(); renderGrid(); renderDuelos();
+        persist(); renderGrid(); renderDuelos(); renderInforme();
       });
       document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
@@ -1034,6 +1187,7 @@
       };
 
       renderSnaps();
+      renderInforme();
       renderLegend();
       renderCastPicker();
       renderGrid();

@@ -854,8 +854,11 @@
       return arr.map(x=>x.code);
     }
 
-    // 1. Flips departamentales (líder absoluto cambió)
-    const deps = DB.nodes[ROOT].children;
+    // 1. Flips departamentales (líder absoluto cambió) — solo deptos peruanos
+    const deps = DB.nodes[ROOT].children.filter(k => {
+      const n = DB.nodes[k];
+      return !(n.ambito === 2 || (n.ubigeo && n.ubigeo.startsWith('9')));
+    });
     for(const depKey of deps){
       const l0 = overallLeader(depKey, i0);
       const l1 = overallLeader(depKey, i1);
@@ -993,6 +996,9 @@
     let depsLider = 0;
     const deps = DB.nodes[ROOT].children;
     for(const k of deps){
+      // omitir el extranjero
+      const n = DB.nodes[k];
+      if(n.ambito === 2 || (n.ubigeo && n.ubigeo.startsWith('9'))) continue;
       const d = DB.data[k][lastI]?.votes || {};
       let best=null, bv=-1;
       for(const [c,v] of Object.entries(d)){
@@ -1003,39 +1009,62 @@
     }
 
     // === conteo territorial ===
-    // separar peruano vs extranjero por nombre (heurística: contiene "EXTRANJERO" o ubigeo empieza con 9)
-    function isExtranjero(key){
+    // El extranjero es un nodo virtual hijo del root, hay que separarlo de los 25 deptos peruanos
+    function isExtranjeroNode(key){
       const n = DB.nodes[key]; if(!n) return false;
+      // ámbito 2 (vía scraper v3) o ubigeo virtual del extranjero
+      if(n.ambito === 2) return true;
+      if(n.ubigeo && n.ubigeo.startsWith('9')) return true;
       const nm = (n.nombre||'').toUpperCase();
-      return nm.includes('EXTRANJERO') || (n.ubigeo && n.ubigeo.startsWith('9'));
+      return nm.includes('EXTRANJERO') || nm.includes('PERUANOS RESIDENTES');
     }
-    const depsAll = DB.nodes[ROOT].children.map(k => ({
-      key: k,
-      nombre: DB.nodes[k].nombre,
-      av: DB.data[k]?.[lastI]?.av || 0,
-      ext: isExtranjero(k)
-    }));
-    const depsByAvAsc = [...depsAll].sort((a,b)=>a.av-b.av);
-    const depsByAvDesc = [...depsAll].sort((a,b)=>b.av-a.av);
+    // deptos peruanos (excluye el nodo virtual del extranjero)
+    const depsPeru = DB.nodes[ROOT].children
+      .filter(k => !isExtranjeroNode(k))
+      .map(k => ({
+        key: k,
+        nombre: DB.nodes[k].nombre,
+        av: DB.data[k]?.[lastI]?.av || 0
+      }));
+    // nodo del extranjero (si existe)
+    const extKey = DB.nodes[ROOT].children.find(k => isExtranjeroNode(k));
+    const extranjero = extKey ? {
+      key: extKey,
+      nombre: DB.nodes[extKey].nombre,
+      av: DB.data[extKey]?.[lastI]?.av || 0,
+      cont: DB.data[extKey]?.[lastI]?.cont || 0,
+      total: DB.data[extKey]?.[lastI]?.total || 0
+    } : null;
+
+    const depsByAvAsc = [...depsPeru].sort((a,b)=>a.av-b.av);
+    const depsByAvDesc = [...depsPeru].sort((a,b)=>b.av-a.av);
     const top3 = depsByAvDesc.slice(0,3);
     const bot5 = depsByAvAsc.slice(0,5);
 
-    // distritos: todos los nodos con nivel distrito
-    const distNodes = Object.entries(DB.nodes).filter(([k,n])=>n.nivel==='distrito').map(([k,n])=>({
-      key:k, nombre:n.nombre, parent: DB.nodes[n.parent]?.nombre,
-      av: DB.data[k]?.[lastI]?.av || 0
-    }));
+    // distritos peruanos (excluye ciudades del extranjero)
+    const distNodes = Object.entries(DB.nodes)
+      .filter(([k,n]) => n.nivel==='distrito' && !isExtranjeroNode(k))
+      .map(([k,n]) => ({
+        key: k, nombre: n.nombre, parent: DB.nodes[n.parent]?.nombre,
+        av: DB.data[k]?.[lastI]?.av || 0
+      }));
     const distByAvAsc = [...distNodes].sort((a,b)=>a.av-b.av);
     const distByAvDesc = [...distNodes].sort((a,b)=>b.av-a.av);
     const dTop3 = distByAvDesc.slice(0,3);
     const dBot5 = distByAvAsc.slice(0,5);
 
-    // 100% completos (deptos y distritos)
-    const depsCompletos = depsAll.filter(d=>d.av>=99.95).length;
-    const distCompletos = distNodes.filter(d=>d.av>=99.95).length;
+    // ciudades del extranjero (nivel distrito dentro de ámbito extranjero)
+    const ciudadesExt = Object.entries(DB.nodes)
+      .filter(([k,n]) => n.nivel==='distrito' && isExtranjeroNode(k))
+      .map(([k,n]) => ({
+        key: k, nombre: n.nombre, parent: DB.nodes[n.parent]?.nombre,
+        av: DB.data[k]?.[lastI]?.av || 0,
+        cont: DB.data[k]?.[lastI]?.cont || 0
+      }));
 
-    // extranjero (puede ser "PERUANOS RESIDENTES EN EL EXTRANJERO" como un solo "depto")
-    const extranjero = depsAll.find(d=>d.ext);
+    // 100% completos (solo Perú)
+    const depsCompletos = depsPeru.filter(d=>d.av>=99.95).length;
+    const distCompletos = distNodes.filter(d=>d.av>=99.95).length;
 
     const fmtDelta = (d, m) => m==='pct' ? (d>=0?'+':'')+d.toFixed(2)+'pp' : (d>=0?'+':'')+fmtS(d);
     const placeLine = (item, withParent=false) => `<div class="info-line"><span class="info-line-nm">${item.nombre}${withParent&&item.parent?` <span class="info-line-pa">${item.parent}</span>`:''}</span><span class="info-line-v">${item.av.toFixed(1)}%</span></div>`;
@@ -1057,8 +1086,8 @@
       value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
       sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : '' });
     cards.push({ title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
-      value: `${depsLider} / ${depsAll.length}`,
-      sub: depsLider*2 >= depsAll.length ? 'mayoría territorial' : 'sin mayoría territorial' });
+      value: `${depsLider} / ${depsPeru.length}`,
+      sub: depsLider*2 >= depsPeru.length ? 'mayoría territorial' : 'sin mayoría territorial' });
     cards.push({ title: 'participación',
       value: `${(nac.part||0).toFixed(2)}%`,
       sub: 'de ciudadanxs habilitadxs' });
@@ -1071,16 +1100,36 @@
         sub: `entre s${firstI} → s${lastI} (válidos)` });
     }
     cards.push({ title: 'completados',
-      value: `${depsCompletos} / ${depsAll.length} <span class="info-sub" style="display:inline">deptos</span>`,
+      value: `${depsCompletos} / ${depsPeru.length} <span class="info-sub" style="display:inline">deptos</span>`,
       sub: `${distCompletos} / ${distNodes.length} distritos al 100%` });
     if(extranjero){
-      cards.push({ title: 'extranjero',
-        value: `${extranjero.av.toFixed(1)}%`,
-        sub: extranjero.nombre.toLowerCase() });
+      // contar continentes / países / ciudades del extranjero
+      const continentes = (DB.nodes[extranjero.key]?.children || []).length;
+      const paises = (DB.nodes[extranjero.key]?.children || []).reduce((acc,k) => acc + (DB.nodes[k]?.children?.length || 0), 0);
+      cards.push({ title: 'extranjero · avance',
+        value: `${extranjero.av.toFixed(2)}%`,
+        sub: `${fmt(extranjero.cont)} / ${fmt(extranjero.total)} actas` });
+      cards.push({ title: 'extranjero · cobertura',
+        value: `${continentes} continentes`,
+        sub: `${paises} países · ${ciudadesExt.length} ciudades` });
+      // ¿quién lidera el extranjero?
+      const extVotes = DB.data[extranjero.key]?.[lastI]?.votes || {};
+      const extTotV = (() => { let s=0; for(const c in extVotes){ const cc=candByCode(c); if(cc && !isBN(cc.agr)) s+=extVotes[c]; } return s; })();
+      let extLeader=null, extLV=-1;
+      for(const [code,v] of Object.entries(extVotes)){
+        const cc = candByCode(code); if(!cc || isBN(cc.agr)) continue;
+        if(v>extLV){extLV=v; extLeader=code;}
+      }
+      if(extLeader){
+        const extPc = extTotV>0 ? extLV/extTotV*100 : 0;
+        cards.push({ title: 'extranjero · líder',
+          value: `<span style="color:${colorForCastCode(extLeader)}">${displayName(extLeader).split(' ').slice(-2).join(' ')}</span>`,
+          sub: `${extPc.toFixed(2)}% · ${fmt(extLV)} votos` });
+      }
     } else {
       cards.push({ title: 'extranjero',
         value: `<span style="color:var(--muted)">no disponible</span>`,
-        sub: 'no incluido en este endpoint de onpe' });
+        sub: 'corre el scraper v3 con --solo-extranjero' });
     }
 
     // tarjetas-lista (ocupan más alto, con varias filas)

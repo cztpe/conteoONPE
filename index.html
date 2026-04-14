@@ -121,6 +121,8 @@
   .controls .mode button:last-child{border-right:0}
   .controls .mode button.act{background:var(--accent);color:#fff}
   .controls .mode button.act:hover{color:#fff}
+  #projToggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #projToggle.on:hover{background:#fff;color:var(--accent)}
   .sug{position:absolute;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid var(--line-strong);max-height:320px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.06)}
   .sug .item{padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
   .sug .item:last-child{border-bottom:0}
@@ -250,6 +252,7 @@
         <button data-mode="pct" class="act">% válidos</button>
         <button data-mode="votes">votos</button>
       </div>
+      <button id="projToggle" title="proyección lineal: extrapola al 100% asumiendo que el patrón actual se mantiene">○ proyección al 100%</button>
       <span class="spacer"></span>
       <button id="clearAll" title="quitar todos los gráficos">limpiar lienzo</button>
     </div>
@@ -307,7 +310,8 @@
     drillProv: null,
     castPickerOpen: false,
     snapsInactive: new Set(),
-    duelos: []   // [{a, b, place}, ...]
+    duelos: [],
+    showProjection: false
   };
 
   // ---------- persistencia ----------
@@ -318,6 +322,7 @@
     if(Array.isArray(saved.cast)) state.cast = saved.cast;
     if(Array.isArray(saved.snapsInactive)) state.snapsInactive = new Set(saved.snapsInactive);
     if(Array.isArray(saved.duelos)) state.duelos = saved.duelos;
+    if(typeof saved.showProjection === 'boolean') state.showProjection = saved.showProjection;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -325,7 +330,8 @@
       yMode: state.yMode,
       cast: state.cast,
       snapsInactive: [...state.snapsInactive],
-      duelos: state.duelos
+      duelos: state.duelos,
+      showProjection: state.showProjection
     })); }catch(e){}
   }
 
@@ -621,16 +627,26 @@
       return v;
     }));
 
-    // y scale
+    // y scale (incluye proyectados si están activos)
     let yMax;
+    let projValues = null;
+    if(state.showProjection && n>=1){
+      const lastOi = aIdx[n-1];
+      projValues = state.cast.map(code => projectedValueAt(key, code, lastOi, mode));
+    }
+    const seriesForScale = projValues
+      ? [...seriesAll.flat(), ...projValues.filter(v=>v!=null)]
+      : seriesAll.flat();
     if(mode==='pct'){
-      const m = Math.max(...seriesAll.flat(), 1);
+      const m = Math.max(...seriesForScale, 1);
       yMax = niceMax(Math.ceil(m*1.05));
     } else {
-      yMax = Math.max(...seriesAll.flat(), 1);
+      yMax = Math.max(...seriesForScale, 1);
       yMax = Math.ceil(yMax*1.05);
     }
-    const xOf = i => n===1 ? padL + innerW/2 : padL + (i/(n-1))*innerW;
+    // X: incluir un slot extra para "100%" si proyección está ON
+    const totalSlots = state.showProjection ? n+1 : n;
+    const xOf = i => totalSlots===1 ? padL + innerW/2 : padL + (i/(totalSlots-1))*innerW;
     const yOf = v => padT + innerH - (v/yMax)*innerH;
 
     const nTicks = 5;
@@ -647,7 +663,12 @@
       return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#f6f6f6" stroke-width="1"/>
               <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${oi}</text>
               <text x="${x}" y="${H-padB+22}" text-anchor="middle" font-size="8" fill="#bbb">${s.label.split(' ').slice(0,2).join(' ')}</text>`;
-    }).join('');
+    }).join('') + (state.showProjection && n>=1 ? (() => {
+      const x = xOf(n);
+      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#e0d0c0" stroke-width="1" stroke-dasharray="3,3"/>
+              <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#b45a1f" font-weight="500">proy.</text>
+              <text x="${x}" y="${H-padB+22}" text-anchor="middle" font-size="8" fill="#c08070">100%</text>`;
+    })() : '');
 
     const linesSVG = seriesAll.map((s,idx)=>{
       const code = state.cast[idx];
@@ -656,17 +677,33 @@
       const op = dim ? 0.2 : 1;
       const sw = (state.highlighted===code) ? 2.4 : 1.6;
       const pts = s.map((v,i)=>[xOf(i),yOf(v)]);
+      // proyección: punto extra al 100%
+      const projV = state.showProjection && projValues ? projValues[idx] : null;
+      const projP = projV!=null ? [xOf(n), yOf(projV)] : null;
+
       if(n===1){
         const p = pts[0];
-        return `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${color}" opacity="${op}"/>
-                <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(1)+'%':fmtS(s[0])}</text>`;
+        let out = `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${color}" opacity="${op}"/>
+                   <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(1)+'%':fmtS(s[0])}</text>`;
+        if(projP){
+          out += `<line x1="${p[0]}" y1="${p[1]}" x2="${projP[0]}" y2="${projP[1]}" stroke="${color}" stroke-width="${sw}" stroke-dasharray="4,3" opacity="${op*0.7}"/>
+                  <circle cx="${projP[0]}" cy="${projP[1]}" r="3" fill="none" stroke="${color}" stroke-width="1.4" opacity="${op*0.8}"/>
+                  <text x="${projP[0]+6}" y="${projP[1]+3}" font-size="10" fill="${color}" opacity="${op*0.85}" font-weight="500" font-style="italic">${mode==='pct'?projV.toFixed(1)+'%':fmtS(projV)}</text>`;
+        }
+        return out;
       }
       const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
       const dots = pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="${dim?1.5:2.5}" fill="${color}" opacity="${op}"/>`).join('');
       const endP = pts[pts.length-1];
       const endVal = s[s.length-1];
       const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="10" fill="${color}" opacity="${op}" font-weight="500">${mode==='pct'?endVal.toFixed(1)+'%':fmtS(endVal)}</text>`;
-      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>${dots}${endLabel}`;
+      let proj = '';
+      if(projP){
+        proj = `<line x1="${endP[0]}" y1="${endP[1]}" x2="${projP[0]}" y2="${projP[1]}" stroke="${color}" stroke-width="${sw}" stroke-dasharray="4,3" opacity="${op*0.7}"/>
+                <circle cx="${projP[0]}" cy="${projP[1]}" r="3" fill="none" stroke="${color}" stroke-width="1.4" opacity="${op*0.8}"/>
+                <text x="${projP[0]+6}" y="${projP[1]+3}" font-size="10" fill="${color}" opacity="${op*0.85}" font-weight="500" font-style="italic">${mode==='pct'?projV.toFixed(1)+'%':fmtS(projV)}</text>`;
+      }
+      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>${dots}${endLabel}${proj}`;
     }).join('');
 
     const frame = `
@@ -1208,6 +1245,31 @@
     if(mode==='pct'){ const t = totalValidVotesAt(place, oi); return t>0 ? v/t*100 : 0; }
     return v;
   }
+
+  // ---------- proyección al 100% ----------
+  // Asume que el patrón actual de votos del territorio se mantiene en las
+  // actas que faltan. La proyección de % es equivalente al % actual (regla
+  // de tres). Para votos: votos_proyectados = votos_actuales * (100/avance).
+  // Aplica solo si avance > 0. Devuelve el valor proyectado al 100% en la
+  // unidad pedida, o null si no se puede calcular.
+  function projectedValueAt(place, code, oi, mode){
+    const av = DB.data[place]?.[oi]?.av;
+    if(!av || av <= 0) return null;
+    const v = votesAt(place, code, oi) || 0;
+    if(mode === 'pct'){
+      // El % proyectado = % actual (asumiendo distribución constante)
+      const t = totalValidVotesAt(place, oi);
+      return t>0 ? (v/t*100) : 0;
+    }
+    // Para votos: extrapolar
+    return v * (100 / av);
+  }
+  // Para todo un nodo: factor de extrapolación
+  function projFactor(place, oi){
+    const av = DB.data[place]?.[oi]?.av;
+    if(!av || av <= 0) return null;
+    return 100 / av;
+  }
   function buildDuelChart(duelo){
     const W=1200, H=240;
     const padL=52, padR=90, padT=18, padB=36;
@@ -1526,6 +1588,20 @@
           state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos();
         }
       };
+
+      document.getElementById('projToggle').onclick = (e) => {
+        state.showProjection = !state.showProjection;
+        const btn = e.target;
+        btn.classList.toggle('on', state.showProjection);
+        btn.textContent = (state.showProjection ? '● ' : '○ ') + 'proyección al 100%';
+        persist(); renderGrid();
+      };
+      // estado inicial del botón
+      (() => {
+        const btn = document.getElementById('projToggle');
+        btn.classList.toggle('on', state.showProjection);
+        btn.textContent = (state.showProjection ? '● ' : '○ ') + 'proyección al 100%';
+      })();
 
       document.getElementById('duelAdd').onclick = () => {
         const a = document.getElementById('duelA').value;

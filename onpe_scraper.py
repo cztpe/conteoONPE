@@ -1,25 +1,23 @@
 """
-ONPE 2026 — Scraper de resultados presidenciales (versión limpia)
-==================================================================
+ONPE 2026 — Scraper de resultados presidenciales (stealth)
+==========================================================
 
-Captura un snapshot completo con granularidad hasta distrito (Perú)
-y ciudad (extranjero). Sobre httpx + asyncio para aprovechar HTTP/2
-y evitar los cuellos de botella de requests+threads.
+Versión con camuflaje de headers y warm-up para pasar WAFs desde
+entornos de datacenter (GitHub Actions / Azure / AWS).
+
+Cambios vs versión base:
+    - User-Agent de Linux (coincide con la plataforma del runner)
+    - Set completo de Client Hints (sec-ch-ua*)
+    - Sec-Fetch-* correctos (navegación entre páginas del mismo origen)
+    - Origin header
+    - Warm-up: primero un GET a la home para obtener cookies de sesión
+    - Cookies persistentes en el cliente httpx
+    - User-Agent consistente con sec-ch-ua
 
 Uso:
-    pip install httpx[http2] pandas pyarrow
-
-    python3 onpe_scraper.py                      # todo (Perú + Extranjero)
-    python3 onpe_scraper.py --no-distrito        # sin nivel distrito (rápido)
-    python3 onpe_scraper.py --solo-peru          # solo Perú
-    python3 onpe_scraper.py --solo-extranjero    # solo extranjero
-    python3 onpe_scraper.py --out ./mis_datos    # carpeta de salida custom
-
-Salidas en ./onpe_out/snapshot_<TIMESTAMP>/:
-    - totales.csv / totales.parquet   (una fila por scope geográfico)
-    - candidatos.csv / candidatos.parquet   (una fila por scope × candidato)
-    - summary.json   (metadatos del snapshot)
-    - raw_nacional.json   (respaldo crudo nivel nacional)
+    pip install 'httpx[http2]' pandas pyarrow
+    python3 onpe_scraper.py --out ./onpe_out
+    python3 onpe_scraper.py --out ./onpe_out --no-distrito
 """
 
 import argparse
@@ -39,21 +37,56 @@ import pandas as pd
 # ────────────────────────────────────────────────────────────────────
 
 BASE = "https://resultadoelectoral.onpe.gob.pe/presentacion-backend"
+HOME_URL = "https://resultadoelectoral.onpe.gob.pe/main/presidenciales"
+ROOT_URL = "https://resultadoelectoral.onpe.gob.pe/"
 ID_ELECCION = 10
 AMBITOS = {1: "peru", 2: "extranjero"}
 CONCURRENCY = 20
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
-RETRY_BACKOFF = 0.3
+RETRY_BACKOFF = 0.5
 
+# Headers que imitan Chrome 131 en Linux (coincide con runners GH Actions)
+# Los sec-ch-ua deben ser consistentes con el User-Agent.
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": "*/*",
-    "Accept-Language": "es-ES,es;q=0.9",
-    "Referer": "https://resultadoelectoral.onpe.gob.pe/main/presidenciales",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Linux"',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "Referer": HOME_URL,
+    "Origin": "https://resultadoelectoral.onpe.gob.pe",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+}
+
+# Headers especiales para el warm-up (navegación real)
+WARMUP_HEADERS = {
+    "User-Agent": HEADERS["User-Agent"],
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": HEADERS["Accept-Language"],
+    "Accept-Encoding": HEADERS["Accept-Encoding"],
+    "sec-ch-ua": HEADERS["sec-ch-ua"],
+    "sec-ch-ua-mobile": HEADERS["sec-ch-ua-mobile"],
+    "sec-ch-ua-platform": HEADERS["sec-ch-ua-platform"],
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "DNT": "1",
+    "Connection": "keep-alive",
 }
 
 
@@ -65,6 +98,26 @@ CLIENT: Optional[httpx.AsyncClient] = None
 SEM: Optional[asyncio.Semaphore] = None
 
 
+async def warm_up() -> None:
+    """Primera visita al sitio para obtener cookies y pasar el WAF."""
+    print("  [warm-up] visitando home de ONPE...")
+    try:
+        # 1. root
+        r1 = await CLIENT.get(ROOT_URL, headers=WARMUP_HEADERS,
+                              timeout=REQUEST_TIMEOUT, follow_redirects=True)
+        print(f"    root: HTTP {r1.status_code} ({len(r1.content)} bytes, "
+              f"cookies: {len(r1.cookies)})")
+        # 2. home de presidenciales (la que el usuario vería)
+        r2 = await CLIENT.get(HOME_URL, headers=WARMUP_HEADERS,
+                              timeout=REQUEST_TIMEOUT, follow_redirects=True)
+        print(f"    presidenciales: HTTP {r2.status_code} ({len(r2.content)} bytes, "
+              f"cookies: {len(r2.cookies)})")
+        # breve pausa simulando que la página carga
+        await asyncio.sleep(0.5)
+    except Exception as e:
+        print(f"    ⚠ warm-up falló: {e}")
+
+
 async def get_json(path: str, **params) -> Dict[str, Any]:
     """GET con reintentos y cap de concurrencia."""
     async with SEM:
@@ -74,12 +127,27 @@ async def get_json(path: str, **params) -> Dict[str, Any]:
                 r = await CLIENT.get(f"{BASE}{path}", params=params,
                                      timeout=REQUEST_TIMEOUT)
                 r.raise_for_status()
+                ctype = r.headers.get("content-type", "")
+                if "json" not in ctype.lower():
+                    raise RuntimeError(
+                        f"respuesta no-JSON: {r.url}\n"
+                        f"HTTP {r.status_code} | content-type: {ctype}\n"
+                        f"primeros 200 chars: {r.text[:200]!r}"
+                    )
                 return r.json()
             except (httpx.TimeoutException, httpx.ConnectError,
                     httpx.RemoteProtocolError, httpx.ReadError) as e:
                 last_err = e
                 if attempt < MAX_RETRIES - 1:
                     await asyncio.sleep(RETRY_BACKOFF * (attempt + 1))
+            except RuntimeError as e:
+                # si fue respuesta no-JSON, no reintentar inmediato (WAF)
+                last_err = e
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(RETRY_BACKOFF * (attempt + 1) * 2)
+                    # reintentar warm-up por si las cookies expiraron
+                    if attempt == 0:
+                        await warm_up()
         raise last_err  # type: ignore
 
 
@@ -99,7 +167,7 @@ async def fetch_provincias(ambito: int, ubigeo_dep: str) -> List[Dict]:
                            idEleccion=ID_ELECCION, idAmbitoGeografico=ambito,
                            idUbigeoDepartamento=ubigeo_dep)
         return r["data"]
-    except httpx.HTTPError:
+    except (httpx.HTTPStatusError, RuntimeError):
         return []
 
 
@@ -109,7 +177,7 @@ async def fetch_distritos(ambito: int, ubigeo_prov: str) -> List[Dict]:
                            idEleccion=ID_ELECCION, idAmbitoGeografico=ambito,
                            idUbigeoProvincia=ubigeo_prov)
         return r["data"]
-    except httpx.HTTPError:
+    except (httpx.HTTPStatusError, RuntimeError):
         return []
 
 
@@ -142,7 +210,7 @@ async def fetch_ambito_resumen(ambito: int) -> Dict:
     scope = {"nivel": "ambito", "ubigeo": ubigeo_virtual, "nombre": nombre,
              "ubigeo_dep": None, "ubigeo_prov": None,
              "nombre_dep": None, "nombre_prov": None, "ambito": ambito}
-    tot, cand = await asyncio.gather(
+    totales, cand = await asyncio.gather(
         get_json("/resumen-general/totales",
                  idEleccion=ID_ELECCION, tipoFiltro="ambito_geografico",
                  idAmbitoGeografico=ambito),
@@ -151,7 +219,7 @@ async def fetch_ambito_resumen(ambito: int) -> Dict:
                  idAmbitoGeografico=ambito),
     )
     return {
-        "totales": {**scope, **(tot.get("data") or {})},
+        "totales": {**scope, **(totales.get("data") or {})},
         "candidatos": [{**scope, **c} for c in (cand.get("data") or [])],
     }
 
@@ -160,18 +228,17 @@ async def fetch_departamento(ambito: int, ub_dep: str, nombre_dep: str) -> Dict:
     scope = {"nivel": "departamento", "ubigeo": ub_dep, "nombre": nombre_dep,
              "ubigeo_dep": ub_dep, "ubigeo_prov": None,
              "nombre_dep": nombre_dep, "nombre_prov": None, "ambito": ambito}
-    tot, cand = await asyncio.gather(
+    totales, cand = await asyncio.gather(
         get_json("/resumen-general/totales",
                  idAmbitoGeografico=ambito, idEleccion=ID_ELECCION,
                  tipoFiltro="ubigeo_nivel_01", idUbigeoDepartamento=ub_dep),
         get_json("/eleccion-presidencial/participantes-ubicacion-geografica-nombre",
                  tipoFiltro="ubigeo_nivel_01", idAmbitoGeografico=ambito,
-                 ubigeoNivel1=ub_dep,
-                 listRegiones="TODOS,PERÚ,EXTRANJERO",
+                 ubigeoNivel1=ub_dep, listRegiones="TODOS,PERÚ,EXTRANJERO",
                  idEleccion=ID_ELECCION),
     )
     return {
-        "totales": {**scope, **(tot.get("data") or {})},
+        "totales": {**scope, **(totales.get("data") or {})},
         "candidatos": [{**scope, **c} for c in (cand.get("data") or [])],
     }
 
@@ -181,7 +248,7 @@ async def fetch_provincia(ambito: int, ub_dep: str, nombre_dep: str,
     scope = {"nivel": "provincia", "ubigeo": ub_prov, "nombre": nombre_prov,
              "ubigeo_dep": ub_dep, "ubigeo_prov": ub_prov,
              "nombre_dep": nombre_dep, "nombre_prov": None, "ambito": ambito}
-    tot, cand = await asyncio.gather(
+    totales, cand = await asyncio.gather(
         get_json("/resumen-general/totales",
                  idAmbitoGeografico=ambito, idEleccion=ID_ELECCION,
                  tipoFiltro="ubigeo_nivel_02",
@@ -189,11 +256,10 @@ async def fetch_provincia(ambito: int, ub_dep: str, nombre_dep: str,
         get_json("/eleccion-presidencial/participantes-ubicacion-geografica-nombre",
                  tipoFiltro="ubigeo_nivel_02", idAmbitoGeografico=ambito,
                  ubigeoNivel1=ub_dep, ubigeoNivel2=ub_prov,
-                 listRegiones="TODOS,PERÚ,EXTRANJERO",
-                 idEleccion=ID_ELECCION),
+                 listRegiones="TODOS,PERÚ,EXTRANJERO", idEleccion=ID_ELECCION),
     )
     return {
-        "totales": {**scope, **(tot.get("data") or {})},
+        "totales": {**scope, **(totales.get("data") or {})},
         "candidatos": [{**scope, **c} for c in (cand.get("data") or [])],
     }
 
@@ -205,7 +271,7 @@ async def fetch_distrito(ambito: int, ub_dep: str, nombre_dep: str,
              "ubigeo_dep": ub_dep, "ubigeo_prov": ub_prov,
              "nombre_dep": nombre_dep, "nombre_prov": nombre_prov,
              "ambito": ambito}
-    tot, cand = await asyncio.gather(
+    totales, cand = await asyncio.gather(
         get_json("/resumen-general/totales",
                  idAmbitoGeografico=ambito, idEleccion=ID_ELECCION,
                  tipoFiltro="ubigeo_nivel_03",
@@ -213,87 +279,120 @@ async def fetch_distrito(ambito: int, ub_dep: str, nombre_dep: str,
                  idUbigeoDistrito=ub_dist),
         get_json("/eleccion-presidencial/participantes-ubicacion-geografica-nombre",
                  tipoFiltro="ubigeo_nivel_03", idAmbitoGeografico=ambito,
-                 ubigeoNivel1=ub_dep, ubigeoNivel2=ub_prov, ubigeoNivel3=ub_dist,
-                 idEleccion=ID_ELECCION),
+                 ubigeoNivel1=ub_dep, ubigeoNivel2=ub_prov,
+                 ubigeoNivel3=ub_dist, idEleccion=ID_ELECCION),
     )
     return {
-        "totales": {**scope, **(tot.get("data") or {})},
+        "totales": {**scope, **(totales.get("data") or {})},
         "candidatos": [{**scope, **c} for c in (cand.get("data") or [])],
     }
 
 
 # ────────────────────────────────────────────────────────────────────
-# Orquestación
+# Paralelización
 # ────────────────────────────────────────────────────────────────────
 
-async def run_with_progress(label: str, coros: List) -> Tuple[List, List]:
+async def _safe(coro_fn, *args) -> Tuple[str, Optional[Dict], Optional[str]]:
+    key = str(args)
+    try:
+        return (key, await coro_fn(*args), None)
+    except Exception as e:
+        return (key, None, f"{type(e).__name__}: {str(e)[:100]}")
+
+
+async def run_parallel(label: str, coro_fn, arg_tuples: List[tuple]) -> List[Dict]:
     results, errors = [], []
-    total = len(coros)
-    tasks = [asyncio.create_task(c) for c in coros]
-    done = 0
-    for fut in asyncio.as_completed(tasks):
-        try:
-            results.append(await fut)
-        except Exception as e:
-            errors.append(f"{type(e).__name__}: {str(e)[:120]}")
-        done += 1
-        if done % 50 == 0 or done == total:
-            print(f"  [{label}] {done}/{total}  (errores: {len(errors)})",
+    tasks = [asyncio.create_task(_safe(coro_fn, *args)) for args in arg_tuples]
+    for i, fut in enumerate(asyncio.as_completed(tasks), 1):
+        key, res, err = await fut
+        if err:
+            errors.append((key, err))
+        else:
+            results.append(res)
+        if i % 50 == 0 or i == len(tasks):
+            print(f"  [{label}] {i}/{len(tasks)}  (errores: {len(errors)})",
                   flush=True)
     if errors:
         print(f"  [{label}] muestra de errores:")
-        for err in errors[:3]:
-            print(f"    - {err}")
-    return results, errors
+        for key, err in errors[:3]:
+            print(f"    - {key[:80]}: {err[:120]}")
+    return results
 
+
+# ────────────────────────────────────────────────────────────────────
+# Captura por ámbito
+# ────────────────────────────────────────────────────────────────────
 
 async def capturar_ambito(ambito: int, incluir_distritos: bool = True) -> Dict:
     label_amb = AMBITOS[ambito]
     print(f"\n── Ámbito {ambito} ({label_amb}) ──")
 
-    print("  Resumen del ámbito...")
+    print(f"  Resumen del ámbito...")
     ambito_summary = await fetch_ambito_resumen(ambito)
 
-    print("  Listando deptos...")
+    print(f"  Listando deptos...")
     deps = await fetch_departamentos(ambito)
-    print(f"    → {len(deps)} deps")
-    dep_results, _ = await run_with_progress(
-        f"{label_amb}/dpto",
-        [fetch_departamento(ambito, d["ubigeo"], d["nombre"]) for d in deps]
+    print(f"    → {len(deps)} {'departamentos' if ambito==1 else 'continentes'}")
+    dep_results = await run_parallel(
+        f"{label_amb}/dpto", fetch_departamento,
+        [(ambito, d["ubigeo"], d["nombre"]) for d in deps]
     )
 
-    print("  Listando provincias...")
-    prov_meta = []
-    for d in deps:
-        for p in await fetch_provincias(ambito, d["ubigeo"]):
-            prov_meta.append((d["ubigeo"], d["nombre"], p["ubigeo"], p["nombre"]))
-    print(f"    → {len(prov_meta)} provincias")
-    prov_results, _ = await run_with_progress(
-        f"{label_amb}/prov",
-        [fetch_provincia(ambito, *m) for m in prov_meta]
+    print(f"  Listando provincias...")
+    provs_raw = await asyncio.gather(
+        *[fetch_provincias(ambito, d["ubigeo"]) for d in deps]
+    )
+    provincias = []
+    for d, ps in zip(deps, provs_raw):
+        for p in ps:
+            provincias.append({
+                "ubigeo_dep": d["ubigeo"], "nombre_dep": d["nombre"],
+                "ubigeo": p["ubigeo"], "nombre": p["nombre"],
+            })
+    print(f"    → {len(provincias)} {'provincias' if ambito==1 else 'países'}")
+    prov_results = await run_parallel(
+        f"{label_amb}/prov", fetch_provincia,
+        [(ambito, p["ubigeo_dep"], p["nombre_dep"], p["ubigeo"], p["nombre"])
+         for p in provincias]
     )
 
     dist_results = []
     if incluir_distritos:
-        print("  Listando distritos...")
-        dist_meta = []
-        for ud, nd, up, np_ in prov_meta:
-            for di in await fetch_distritos(ambito, up):
-                dist_meta.append((ud, nd, up, np_, di["ubigeo"], di["nombre"]))
-        print(f"    → {len(dist_meta)} distritos")
-        if dist_meta:
-            dist_results, _ = await run_with_progress(
-                f"{label_amb}/dist",
-                [fetch_distrito(ambito, *m) for m in dist_meta]
+        print(f"  Listando distritos...")
+        dists_raw = await asyncio.gather(
+            *[fetch_distritos(ambito, p["ubigeo"]) for p in provincias]
+        )
+        distritos = []
+        for p, ds in zip(provincias, dists_raw):
+            for d in ds:
+                distritos.append({
+                    "ubigeo_dep": p["ubigeo_dep"], "nombre_dep": p["nombre_dep"],
+                    "ubigeo_prov": p["ubigeo"], "nombre_prov": p["nombre"],
+                    "ubigeo": d["ubigeo"], "nombre": d["nombre"],
+                })
+        print(f"    → {len(distritos)} {'distritos' if ambito==1 else 'ciudades'}")
+        if distritos:
+            dist_results = await run_parallel(
+                f"{label_amb}/dist", fetch_distrito,
+                [(ambito, d["ubigeo_dep"], d["nombre_dep"],
+                  d["ubigeo_prov"], d["nombre_prov"],
+                  d["ubigeo"], d["nombre"]) for d in distritos]
             )
 
     return {
         "ambito_summary": ambito_summary,
-        "deps": dep_results, "provs": prov_results, "dists": dist_results,
-        "n_deps": len(dep_results), "n_provs": len(prov_results),
+        "deps": dep_results,
+        "provs": prov_results,
+        "dists": dist_results,
+        "n_deps": len(dep_results),
+        "n_provs": len(prov_results),
         "n_dists": len(dist_results),
     }
 
+
+# ────────────────────────────────────────────────────────────────────
+# Snapshot
+# ────────────────────────────────────────────────────────────────────
 
 async def run_snapshot(out_dir: pathlib.Path,
                        incluir_distritos: bool = True,
@@ -301,8 +400,16 @@ async def run_snapshot(out_dir: pathlib.Path,
     global CLIENT, SEM
     limits = httpx.Limits(max_connections=CONCURRENCY * 2,
                           max_keepalive_connections=CONCURRENCY)
-    CLIENT = httpx.AsyncClient(http2=True, headers=HEADERS, limits=limits,
-                               timeout=REQUEST_TIMEOUT)
+    # jar de cookies persistente
+    jar = httpx.Cookies()
+    CLIENT = httpx.AsyncClient(
+        http2=True,
+        headers=HEADERS,
+        limits=limits,
+        timeout=REQUEST_TIMEOUT,
+        follow_redirects=True,
+        cookies=jar,
+    )
     SEM = asyncio.Semaphore(CONCURRENCY)
 
     try:
@@ -313,16 +420,18 @@ async def run_snapshot(out_dir: pathlib.Path,
         print(f"\n▶ Snapshot ONPE — {ts.isoformat()}")
         print(f"  Carpeta: {snap_dir}")
         print(f"  Ámbitos: {[AMBITOS[a] for a in ambitos_run]}")
-        print(f"  Motor: httpx async, concurrency={CONCURRENCY}\n")
+        print(f"  Motor: httpx async http/2, concurrency={CONCURRENCY}")
 
-        print("[1/N] Nacional global...")
+        # WARM-UP: visita a la home para obtener cookies de sesión
+        await warm_up()
+
+        print("\n[1/N] Nacional global...")
         nac = await fetch_nacional()
 
         capturas = {}
         for amb in ambitos_run:
             capturas[amb] = await capturar_ambito(amb, incluir_distritos)
 
-        # Consolidación
         totales_rows = [nac["totales"]]
         cand_rows = list(nac["candidatos"])
         for amb, cap in capturas.items():
@@ -337,12 +446,6 @@ async def run_snapshot(out_dir: pathlib.Path,
         df_cand = pd.DataFrame(cand_rows)
         df_tot["snapshot_utc"] = ts.isoformat()
         df_cand["snapshot_utc"] = ts.isoformat()
-
-        # Normalizar tipos object mezclados (int/str) para que pyarrow no reviente
-        for df in (df_tot, df_cand):
-            for col in df.columns:
-                if df[col].dtype == "object":
-                    df[col] = df[col].astype(str).where(df[col].notna(), None)
 
         df_tot.to_csv(snap_dir / "totales.csv", index=False)
         df_tot.to_parquet(snap_dir / "totales.parquet", index=False)
@@ -376,15 +479,14 @@ async def run_snapshot(out_dir: pathlib.Path,
         print(f"  Candidatos: {summary['rows_candidatos']} filas")
         if 1 in ambitos_run:
             print(f"  PERÚ:       {summary['n_departamentos_peru']} dpto · "
-                  f"{summary['n_provincias_peru']} prov · "
-                  f"{summary['n_distritos_peru']} dist")
+                  f"{summary['n_provincias_peru']} prov · {summary['n_distritos_peru']} dist")
         if 2 in ambitos_run:
-            print(f"  EXTRANJERO: {summary['n_continentes_extranjero']} cont · "
-                  f"{summary['n_paises_extranjero']} países · "
-                  f"{summary['n_ciudades_extranjero']} ciudades")
+            print(f"  EXTRANJERO: {summary['n_continentes_extranjero']} continentes · "
+                  f"{summary['n_paises_extranjero']} países · {summary['n_ciudades_extranjero']} ciudades")
         print(f"  Avance nacional: {summary['avance_nacional_pct']}% "
               f"({summary['actas_contabilizadas']}/{summary['total_actas']} actas)")
         return summary
+
     finally:
         await CLIENT.aclose()
 
@@ -394,10 +496,10 @@ async def run_snapshot(out_dir: pathlib.Path,
 # ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="ONPE 2026 presidencial — snapshot")
+    ap = argparse.ArgumentParser(
+        description="ONPE 2026 presidencial — snapshot (stealth)")
     ap.add_argument("--out", default="./onpe_out")
-    ap.add_argument("--no-distrito", action="store_true",
-                    help="Omitir nivel distrito (más rápido)")
+    ap.add_argument("--no-distrito", action="store_true")
     grp = ap.add_mutually_exclusive_group()
     grp.add_argument("--solo-peru", action="store_true")
     grp.add_argument("--solo-extranjero", action="store_true")

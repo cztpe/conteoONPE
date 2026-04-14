@@ -34,6 +34,9 @@
   .snap b{color:var(--accent)}
   .snap .av{color:var(--muted);font-size:10px}
   .snap.latest{border-color:var(--accent);background:#f6f9ef}
+  .snap.inactive{opacity:0.35;text-decoration:line-through;cursor:pointer}
+  .snap[data-ts]{cursor:pointer}
+  .snap[data-ts]:hover{border-color:var(--accent);color:var(--accent)}
 
   /* legend */
   .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:#fcfcfc}
@@ -208,10 +211,11 @@
     places: [ROOT],
     yMode: 'pct',
     highlighted: null,
-    cast: [],           // codes escogidos por el usuarix
+    cast: [],
     drillDep: null,
     drillProv: null,
-    castPickerOpen: false
+    castPickerOpen: false,
+    snapsInactive: new Set()   // ts de snapshots excluidos
   };
 
   // ---------- persistencia ----------
@@ -220,9 +224,15 @@
     if(Array.isArray(saved.places) && saved.places.length) state.places = saved.places;
     if(saved.yMode) state.yMode = saved.yMode;
     if(Array.isArray(saved.cast)) state.cast = saved.cast;
+    if(Array.isArray(saved.snapsInactive)) state.snapsInactive = new Set(saved.snapsInactive);
   }catch(e){}
   function persist(){
-    try{ localStorage.setItem(STORE, JSON.stringify({places: state.places, yMode: state.yMode, cast: state.cast})); }catch(e){}
+    try{ localStorage.setItem(STORE, JSON.stringify({
+      places: state.places,
+      yMode: state.yMode,
+      cast: state.cast,
+      snapsInactive: [...state.snapsInactive]
+    })); }catch(e){}
   }
 
   // ---------- descubrimiento ----------
@@ -364,10 +374,35 @@
     });
   }
 
+  // índices de snapshots activos (dentro de DB.snapshots)
+  function activeIndices(){
+    return DB.snapshots.map((s,i)=>({s,i})).filter(x=>!state.snapsInactive.has(x.s.ts)).map(x=>x.i);
+  }
+
   // ---------- render snaps + legend ----------
   function renderSnaps(){
     const el = document.getElementById('snaps');
-    el.innerHTML = DB.snapshots.map((s,i)=>`<div class="snap ${i===last()?'latest':''}" title="${s.ts} · ${s._file||''}">s${i} · <b>${s.label}</b> <span class="av">${pct(s.avance)}</span></div>`).join('');
+    const activeCount = DB.snapshots.length - state.snapsInactive.size;
+    el.innerHTML = DB.snapshots.map((s,i)=>{
+      const inactive = state.snapsInactive.has(s.ts);
+      const isLatest = i===DB.snapshots.length-1;
+      return `<div class="snap ${isLatest&&!inactive?'latest':''} ${inactive?'inactive':''}" data-ts="${s.ts}" title="${s.ts} · click: ${inactive?'activar':'quitar del gráfico'}">s${i} · <b>${s.label}</b> <span class="av">${pct(s.avance)}</span></div>`;
+    }).join('') + `<div class="snap" id="snapsAll" style="color:var(--muted);cursor:pointer" title="mostrar todos">mostrar todos</div>`;
+    el.querySelectorAll('.snap[data-ts]').forEach(p => p.onclick = () => {
+      const ts = p.dataset.ts;
+      const activeN = DB.snapshots.length - state.snapsInactive.size;
+      if(state.snapsInactive.has(ts)){
+        state.snapsInactive.delete(ts);
+      } else {
+        if(activeN<=1){ return; } // no dejar el chart sin nada
+        state.snapsInactive.add(ts);
+      }
+      persist(); renderSnaps(); renderGrid();
+    });
+    document.getElementById('snapsAll').onclick = () => {
+      state.snapsInactive.clear();
+      persist(); renderSnaps(); renderGrid();
+    };
   }
   function renderLegend(){
     const el = document.getElementById('legend');
@@ -444,8 +479,16 @@
     const padL=52, padR=90, padT=18, padB=36;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
-    // series for all topN
-    const seriesAll = state.cast.map(code => seriesFor(key, code, mode));
+    const aIdx = activeIndices();
+    const aSnaps = aIdx.map(i => DB.snapshots[i]);
+    const n = aSnaps.length;
+
+    // series for all cast (solo snaps activos)
+    const seriesAll = state.cast.map(code => aIdx.map(oi => {
+      const v = votesAt(key, code, oi) ?? 0;
+      if(mode==='pct'){ const t = totalValidVotesAt(key, oi); return t>0 ? v/t*100 : 0; }
+      return v;
+    }));
 
     // y scale
     let yMax;
@@ -456,38 +499,28 @@
       yMax = Math.max(...seriesAll.flat(), 1);
       yMax = Math.ceil(yMax*1.05);
     }
-    const xOf = i => {
-      const n = DB.snapshots.length;
-      if(n===1) return padL + innerW/2;
-      return padL + (i/(n-1))*innerW;
-    };
+    const xOf = i => n===1 ? padL + innerW/2 : padL + (i/(n-1))*innerW;
     const yOf = v => padT + innerH - (v/yMax)*innerH;
 
-    // y ticks
     const nTicks = 5;
     const yTicks = [];
-    for(let i=0;i<=nTicks;i++){
-      const v = (yMax/nTicks)*i;
-      yTicks.push({v, y: yOf(v)});
-    }
+    for(let i=0;i<=nTicks;i++){ const v=(yMax/nTicks)*i; yTicks.push({v, y:yOf(v)}); }
     const yTicksSVG = yTicks.map(t=>`
       <line x1="${padL}" y1="${t.y}" x2="${W-padR}" y2="${t.y}" stroke="#f0f0f0" stroke-width="1"/>
       <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(0)+'%':fmtS(t.v)}</text>
     `).join('');
 
-    // x ticks
-    const xTicksSVG = DB.snapshots.map((s,i)=>{
+    const xTicksSVG = aSnaps.map((s,i)=>{
       const x = xOf(i);
+      const oi = aIdx[i];
       return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#f6f6f6" stroke-width="1"/>
-              <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${i}</text>
+              <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">s${oi}</text>
               <text x="${x}" y="${H-padB+22}" text-anchor="middle" font-size="8" fill="#bbb">${s.label.split(' ').slice(0,2).join(' ')}</text>`;
     }).join('');
 
-    // lines
-    const n = DB.snapshots.length;
     const linesSVG = seriesAll.map((s,idx)=>{
       const code = state.cast[idx];
-      const color = K_COLORS[idx];
+      const color = K_COLORS[idx] || '#888';
       const dim = state.highlighted && state.highlighted!==code;
       const op = dim ? 0.2 : 1;
       const sw = (state.highlighted===code) ? 2.4 : 1.6;
@@ -498,30 +531,26 @@
                 <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(1)+'%':fmtS(s[0])}</text>`;
       }
       const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
-      const dots = pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${dim?1.5:2.5}" fill="${color}" opacity="${op}" class="pt" data-place="${key}" data-code="${code}" data-snap="${i}"/>`).join('');
-      // end label
+      const dots = pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="${dim?1.5:2.5}" fill="${color}" opacity="${op}"/>`).join('');
       const endP = pts[pts.length-1];
       const endVal = s[s.length-1];
       const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="10" fill="${color}" opacity="${op}" font-weight="500">${mode==='pct'?endVal.toFixed(1)+'%':fmtS(endVal)}</text>`;
       return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>${dots}${endLabel}`;
     }).join('');
 
-    // frame
     const frame = `
       <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc" stroke-width="1"/>
     `;
 
-    // crosshair (oculta por defecto)
     const crosshair = `<line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="2,2" opacity="0" pointer-events="none"/>`;
-    // hit zones invisibles (una por snapshot, full height)
-    const nSnapsTotal = DB.snapshots.length;
-    const hitW = nSnapsTotal>1 ? innerW/(nSnapsTotal-1) : innerW;
-    const hits = DB.snapshots.map((_,i) => {
+    const hitW = n>1 ? innerW/(n-1) : innerW;
+    const hits = aSnaps.map((_,i) => {
       const cx = xOf(i);
+      const oi = aIdx[i];
       const hx = Math.max(padL, cx - hitW/2);
       const hw = Math.min(W-padR-hx, hitW);
-      return `<rect class="hit" x="${hx}" y="${padT}" width="${hw}" height="${innerH}" fill="transparent" data-place="${key}" data-snap="${i}" data-cx="${cx}" style="cursor:crosshair"/>`;
+      return `<rect class="hit" x="${hx}" y="${padT}" width="${hw}" height="${innerH}" fill="transparent" data-place="${key}" data-snap="${oi}" data-cx="${cx}" style="cursor:crosshair"/>`;
     }).join('');
 
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" data-place="${key}">
@@ -530,10 +559,13 @@
   }
 
   function cardFoot(key){
-    const i = last();
-    const prev = i>0 ? i-1 : null;
+    const aIdx = activeIndices();
+    if(aIdx.length===0) return '<div class="card-foot" style="color:var(--muted);grid-template-columns:1fr;text-align:center;font-style:italic">sin snapshots activos</div>';
+    const i = aIdx[aIdx.length-1];
+    const prev = aIdx.length>1 ? aIdx[aIdx.length-2] : null;
     return `<div class="card-foot">${state.cast.map((code,idx)=>{
       const c = candByCode(code);
+      if(!c) return '';
       const v = votesAt(key,code,i) || 0;
       const t = totalValidVotesAt(key,i);
       const pc = t>0 ? v/t*100 : 0;
@@ -547,7 +579,7 @@
       }
       const dim = state.highlighted && state.highlighted!==code ? 'style="opacity:0.35"' : '';
       return `<div class="cv" ${dim}>
-        <span class="nm" style="color:${K_COLORS[idx]}">${displayName(code).split(' ')[0]}</span>
+        <span class="nm" style="color:${K_COLORS[idx]||'#888'}">${displayName(code).split(' ')[0]}</span>
         <span class="vn">${state.yMode==='pct'?pc.toFixed(1)+'%':fmtS(v)}</span>
         <span class="dlt ${dcl}">${dtx}</span>
       </div>`;
@@ -561,9 +593,11 @@
       return;
     }
     el.innerHTML = state.places.map(key=>{
-      if(!DB.nodes[key]){ return ''; } // invalid, will be cleaned
+      if(!DB.nodes[key]){ return ''; }
       const n = DB.nodes[key];
-      const d = DB.data[key]?.[last()] || {};
+      const aIdx = activeIndices();
+      const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+      const d = DB.data[key]?.[lastI] || {};
       const path = nodePath(key).join(' › ');
       const title = key===ROOT ? 'PERÚ' : n.nombre;
       const canRemove = key!==ROOT;

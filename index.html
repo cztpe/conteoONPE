@@ -137,6 +137,8 @@
   .card-title .nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card-title .meta{font-size:10px;color:var(--muted)}
   .card-title .meta b{color:var(--accent)}
+  .card-title .meta .pd{color:var(--faint)}
+  .card-title .meta .pd b{color:var(--muted);font-weight:500}
   .card-title .breakdown{font-size:10px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .card-title .breakdown .bk b{color:var(--fg);font-weight:500}
   .card-title .breakdown .bk-lbl{text-transform:uppercase;letter-spacing:.05em;font-size:9px;color:var(--faint);margin-right:3px}
@@ -305,7 +307,40 @@
 <script>
 (() => {
   const ROOT = '__root__';
+  const EXT_VIRTUAL = '900000';
   const STORE = 'onpe_charts_v1';
+
+  // Padrón electoral por depto (ONPE 2026). Lima ONPE = Lima Metropolitana + Lima Provincias.
+  const PADRON = {
+    'AMAZONAS': 345245, 'ÁNCASH': 971385, 'APURÍMAC': 361338,
+    'AREQUIPA': 1226525, 'AYACUCHO': 520238, 'CAJAMARCA': 1198773,
+    'CUSCO': 1133754, 'HUANCAVELICA': 339448, 'HUÁNUCO': 656517,
+    'ICA': 713997, 'JUNÍN': 1062500, 'LA LIBERTAD': 1552691,
+    'LAMBAYEQUE': 1051350, 'LIMA': 8651028, 'LORETO': 775923,
+    'MADRE DE DIOS': 147577, 'MOQUEGUA': 164628, 'PASCO': 223695,
+    'PIURA': 1534085, 'PUNO': 963489, 'SAN MARTÍN': 723605,
+    'TACNA': 302615, 'TUMBES': 181317, 'CALLAO': 858968, 'UCAYALI': 453928,
+    'PERUANOS RESIDENTES EN EL EXTRANJERO': 1210813
+  };
+  const PADRON_TOTAL = Object.values(PADRON).reduce((a,b)=>a+b,0);
+
+  // Electores habilitados del nodo (solo sabemos al nivel depto + nacional + extranjero)
+  function padronOf(key){
+    if(!DB?.nodes?.[key]) return null;
+    const n = DB.nodes[key];
+    if(key === ROOT) return PADRON_TOTAL;
+    if(key === EXT_VIRTUAL) return PADRON['PERUANOS RESIDENTES EN EL EXTRANJERO'];
+    if(n.nivel === 'departamento'){
+      return PADRON[(n.nombre||'').toUpperCase()] ?? null;
+    }
+    return null;
+  }
+  // % del padrón nacional que representa este nodo
+  function padronWeight(key){
+    const p = padronOf(key);
+    return p!=null ? (p/PADRON_TOTAL*100) : null;
+  }
+
   let DB = null;
   const state = {
     places: [ROOT],
@@ -815,11 +850,16 @@
         </div>`;
       }
 
+      // peso electoral del nodo (si es depto o extranjero)
+      const pW = padronWeight(key);
+      const pEl = padronOf(key);
+      const padronLine = pW != null ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(1)}%</b> nac.</span>` : '';
+
       return `<div class="card" data-key="${key}">
         <div class="card-head">
           <div class="card-title">
             <div class="nm">${title}</div>
-            <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}</div>
+            <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}${padronLine}</div>
             ${breakdown}
           </div>
           <div class="card-actions">
@@ -1115,6 +1155,8 @@
     }
 
     let depsLider = 0;
+    let padronDeLider = 0;      // suma de electores de los deptos donde lidera
+    let padronDepsKnown = 0;    // suma de electores de deptos peruanos (denominador)
     const deps = DB.nodes[ROOT].children;
     for(const k of deps){
       // omitir el extranjero
@@ -1126,7 +1168,12 @@
         const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
         if(v>bv){bv=v; best=c;}
       }
-      if(best === leader?.code) depsLider++;
+      const pEl = padronOf(k) || 0;
+      padronDepsKnown += pEl;
+      if(best === leader?.code){
+        depsLider++;
+        padronDeLider += pEl;
+      }
     }
 
     // === conteo territorial ===
@@ -1206,15 +1253,57 @@
     cards.push({ title: 'duelo más cerrado',
       value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
       sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : '' });
+    const pesoLiderPct = padronDepsKnown>0 ? (padronDeLider/padronDepsKnown*100) : 0;
     cards.push({ title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
       value: `${depsLider} / ${depsPeru.length}`,
-      sub: depsLider*2 >= depsPeru.length ? 'mayoría territorial' : 'sin mayoría territorial' });
+      sub: `${pesoLiderPct.toFixed(1)}% del padrón peruano` });
     cards.push({ title: 'participación',
       value: `${(nac.part||0).toFixed(2)}%`,
       sub: 'de ciudadanxs habilitadxs' });
     cards.push({ title: 'avance de actas',
       value: `${(nac.av||0).toFixed(2)}%`,
       sub: `${fmt(nac.cont)} / ${fmt(nac.total)}` });
+
+    // === estimación de votos por procesar (usando padrón + participación por depto) ===
+    // Para cada depto, proyectamos: si ahí la participación ya observada fuera la final,
+    // el total de votos esperado es padrón * participación. Contrastando con los votos ya
+    // contados (válidos + blanco + nulo) sabemos cuántos faltan realmente.
+    let votosYaProc = 0;
+    let votosEsperados = 0;
+    let votosYaProcExt = 0;
+    let votosEsperadosExt = 0;
+    for(const k of DB.nodes[ROOT].children){
+      const dd = DB.data[k]?.[lastI];
+      if(!dd) continue;
+      const pEl = padronOf(k);
+      if(pEl == null) continue;
+      const part = dd.part || 0;     // % de ciudadanxs que votaron
+      const av = dd.av || 0;         // % de actas procesadas
+      // votos totales (válidos + blanco + nulo) proyectados al 100% de actas:
+      // si con av% de actas hay X votos totales, al 100% hay X*(100/av)
+      let votosActuales = 0;
+      for(const v of Object.values(dd.votes||{})) votosActuales += v;
+      const esperado = pEl * (part/100);
+      const esExt = (DB.nodes[k].ambito===2) || (DB.nodes[k].ubigeo||'').startsWith('9');
+      if(esExt){
+        votosYaProcExt += votosActuales;
+        votosEsperadosExt += esperado;
+      } else {
+        votosYaProc += votosActuales;
+        votosEsperados += esperado;
+      }
+    }
+    const faltan = Math.max(0, votosEsperados - votosYaProc);
+    const faltanExt = Math.max(0, votosEsperadosExt - votosYaProcExt);
+    const faltanTotal = faltan + faltanExt;
+    if(faltanTotal > 0){
+      const subParts = [];
+      if(faltan > 0) subParts.push(`${fmtS(faltan)} territorio`);
+      if(faltanExt > 0) subParts.push(`${fmtS(faltanExt)} extranjero`);
+      cards.push({ title: 'votos por procesar (est.)',
+        value: fmtS(faltanTotal),
+        sub: subParts.join(' · ') || 'según padrón × participación' });
+    }
     if(nuevosVotos !== null){
       cards.push({ title: 'votos nuevos contabilizados',
         value: fmtS(nuevosVotos),

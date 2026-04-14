@@ -244,6 +244,27 @@
   .cs-table .delta-down{color:#a04040}
   .cs-table .delta-neutral{color:var(--muted)}
 
+  /* mapa de grilla */
+  .map-section{margin-top:28px;border:1px solid var(--line);padding:16px 18px;background:#fdfcfa}
+  .map-section h2{margin:0 0 4px;font-size:14px;font-weight:500;letter-spacing:.02em}
+  .map-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .map-lbl{font-size:11px;color:var(--muted)}
+  .map-wrap{display:grid;gap:4px;justify-content:start;margin-bottom:14px}
+  .map-cell{position:relative;width:64px;height:44px;border:1px solid var(--line-strong);background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;font-size:10px;padding:2px;transition:transform .08s ease}
+  .map-cell:hover{transform:scale(1.08);z-index:10;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
+  .map-cell.added{outline:2px solid var(--fg);outline-offset:-1px}
+  .map-cell .mc-sig{font-weight:600;font-size:10px;letter-spacing:.04em;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.35)}
+  .map-cell .mc-val{font-size:9px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.35);font-variant-numeric:tabular-nums;margin-top:1px}
+  .map-cell.light .mc-sig, .map-cell.light .mc-val{color:#222;text-shadow:none}
+  .map-cell.empty{border:none;background:transparent;cursor:default;pointer-events:none}
+  .map-cell.ext{border-style:dashed;border-color:#999}
+  .map-legend{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+  .map-legend .lg-swatch{display:inline-block;width:14px;height:10px;border:1px solid var(--line-strong);margin-right:3px;vertical-align:middle}
+  .map-legend .lg-scale{display:inline-flex;align-items:center;gap:2px}
+  .map-legend .lg-grad{display:inline-block;width:120px;height:10px;border:1px solid var(--line-strong);background:linear-gradient(to right, #f5f5f0, var(--accent))}
+  .map-tip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:5px 8px;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .1s;z-index:20;margin-bottom:4px}
+  .map-cell:hover .map-tip{opacity:1}
+
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
 </style>
@@ -334,6 +355,24 @@
       <div class="cs-meta" id="csMeta"></div>
       <table class="cs-table" id="csTable"></table>
     </div>
+
+    <div class="map-section" id="mapSection">
+      <h2>mapa de grilla · perú + extranjero</h2>
+      <p class="cs-note">cada celda representa un depto/ámbito del mismo tamaño, dispuesto topológicamente (norte→sur, costa→sierra→selva). click para añadir al lienzo.</p>
+      <div class="map-controls">
+        <span class="map-lbl">colorear por:</span>
+        <div class="mode" id="mapModeBox">
+          <button data-mapmode="winner" class="act">líder</button>
+          <button data-mapmode="avance">avance</button>
+          <button data-mapmode="margin">margen</button>
+          <button data-mapmode="part">participación</button>
+          <button data-mapmode="candidato">candidatx…</button>
+        </div>
+        <select id="mapCandSel" style="display:none;margin-left:8px;font-size:11px;padding:4px 8px;border:1px solid var(--line-strong);background:#fff"></select>
+      </div>
+      <div class="map-wrap" id="mapWrap"></div>
+      <div class="map-legend" id="mapLegend"></div>
+    </div>
   </div>
 
   <div class="tooltip" id="tip"></div>
@@ -380,6 +419,49 @@
     return p!=null ? (p/PADRON_TOTAL*100) : null;
   }
 
+  // === MAPA DE GRILLA ===
+  // Layout topológico de Perú + Extranjero. [col, row, sigla, nombre]
+  // cols 0-4 = Perú oeste→este (selva, andes, costa, sur, altiplano)
+  // col 6 = extranjero
+  const MAP_GRID = {
+    // selva/oriente
+    '150000': [0, 1, 'LOR'],   // Loreto
+    '210000': [0, 2, 'SAM'],   // San Martín
+    '250000': [0, 3, 'UCA'],   // Ucayali
+    '160000': [0, 4, 'MDD'],   // Madre de Dios
+    // andes norte/centro
+    '010000': [1, 1, 'AMA'],   // Amazonas
+    '060000': [1, 2, 'CAJ'],   // Cajamarca
+    '090000': [1, 3, 'HCO'],   // Huánuco
+    '180000': [1, 4, 'PAS'],   // Pasco
+    '110000': [1, 5, 'JUN'],   // Junín
+    '070000': [1, 6, 'CUS'],   // Cusco
+    // costa norte + central + sur
+    '230000': [2, 0, 'TUM'],   // Tumbes
+    '190000': [2, 1, 'PIU'],   // Piura
+    '130000': [2, 2, 'LAM'],   // Lambayeque
+    '120000': [2, 3, 'LIB'],   // La Libertad
+    '020000': [2, 4, 'ANC'],   // Áncash
+    '140000': [2, 5, 'LIM'],   // Lima
+    '100000': [2, 6, 'ICA'],   // Ica
+    // callao + sur andino
+    '240000': [3, 5, 'CAO'],   // Callao
+    '080000': [3, 6, 'HVA'],   // Huancavelica
+    '050000': [3, 7, 'AYA'],   // Ayacucho
+    '030000': [3, 8, 'APU'],   // Apurímac
+    '200000': [3, 9, 'PUN'],   // Puno
+    // altiplano sur
+    '040000': [4, 7, 'ARE'],   // Arequipa
+    '170000': [4, 8, 'MOQ'],   // Moquegua
+    '220000': [4, 9, 'TAC'],   // Tacna
+    // extranjero (col 6)
+    '910000': [6, 0, 'AFR'],
+    '920000': [6, 1, 'AMR'],
+    '940000': [6, 2, 'EUR'],
+    '930000': [6, 3, 'ASI'],
+    '950000': [6, 4, 'OCE'],
+  };
+
   let DB = null;
 
   // === Baseline histórica: Pedro Castillo primera vuelta 2021 ===
@@ -410,7 +492,9 @@
     snapsInactive: new Set(),
     duelos: [],
     showCastillo: false,  // línea baseline 2021
-    csSort: { col: 'default', dir: 'desc' }  // ordenamiento tabla castillo-sanchez
+    csSort: { col: 'default', dir: 'desc' },  // ordenamiento tabla castillo-sanchez
+    mapMode: 'winner',  // modo de colorear mapa: winner | avance | margin | part | candidato
+    mapCand: null       // código de candidatx cuando mapMode === 'candidato'
   };
 
   // ---------- persistencia ----------
@@ -424,6 +508,8 @@
     if(Array.isArray(saved.duelos)) state.duelos = saved.duelos;
     if(typeof saved.showCastillo==='boolean') state.showCastillo = saved.showCastillo;
     if(saved.csSort && typeof saved.csSort==='object') state.csSort = saved.csSort;
+    if(saved.mapMode) state.mapMode = saved.mapMode;
+    if(saved.mapCand) state.mapCand = saved.mapCand;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -434,7 +520,9 @@
       snapsInactive: [...state.snapsInactive],
       duelos: state.duelos,
       showCastillo: state.showCastillo,
-      csSort: state.csSort
+      csSort: state.csSort,
+      mapMode: state.mapMode,
+      mapCand: state.mapCand
     })); }catch(e){}
   }
 
@@ -637,11 +725,11 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
     });
     document.getElementById('snapsAll').onclick = () => {
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
     };
   }
   function renderLegend(){
@@ -662,7 +750,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements(); renderCastilloCompare();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements(); renderCastilloCompare(); renderMap();
         return;
       }
       const code = ln.dataset.code;
@@ -951,7 +1039,7 @@
     el.querySelectorAll('[data-act="rm"]').forEach(b=>b.onclick=(e)=>{
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
-      persist(); renderGrid(); renderBrowser(); renderDuelos();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
     });
 
     // tooltips por columna (hit-zone por snapshot)
@@ -1051,7 +1139,7 @@
       if(!state.places.includes(key)) state.places.push(key);
       document.getElementById('q').value='';
       box.style.display='none';
-      persist(); renderGrid(); renderBrowser(); renderDuelos();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
     });
   }
 
@@ -1681,6 +1769,221 @@
     </div>`;
   }
 
+  function renderMap(){
+    const sec = document.getElementById('mapSection');
+    const wrap = document.getElementById('mapWrap');
+    const legend = document.getElementById('mapLegend');
+    if(!DB){ sec.style.display='none'; return; }
+    sec.style.display='';
+
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+    const mode = state.mapMode;
+
+    // dimensiones de la grilla
+    let maxCol=0, maxRow=0;
+    for(const [c,r] of Object.values(MAP_GRID)){
+      if(c>maxCol) maxCol=c;
+      if(r>maxRow) maxRow=r;
+    }
+    wrap.style.gridTemplateColumns = `repeat(${maxCol+1}, 64px)`;
+    wrap.style.gridTemplateRows = `repeat(${maxRow+1}, 44px)`;
+
+    // calcular rango si aplica (para gradientes)
+    let rangeMin=Infinity, rangeMax=-Infinity;
+    const values = {};
+    for(const [key, spec] of Object.entries(MAP_GRID)){
+      const dd = DB.data[key]?.[lastI];
+      if(!dd){ values[key]=null; continue; }
+      let v = null;
+      if(mode==='avance'){
+        v = dd.av || 0;
+      } else if(mode==='part'){
+        v = dd.part || 0;
+      } else if(mode==='margin'){
+        // margen del líder sobre el segundo
+        const vs = dd.votes || {};
+        const arr = Object.entries(vs).filter(([c]) => {
+          const cc = candByCode(c); return cc && !isBN(cc.agr);
+        }).sort((a,b)=>b[1]-a[1]);
+        let totV=0;
+        for(const [c,vv] of arr) totV += vv;
+        if(arr.length>=2 && totV>0){
+          v = (arr[0][1]-arr[1][1])/totV*100;
+        } else v = 0;
+      } else if(mode==='candidato' && state.mapCand){
+        const vs = dd.votes || {};
+        let totV=0;
+        for(const c in vs){
+          const cc = candByCode(c); if(cc && !isBN(cc.agr)) totV += vs[c];
+        }
+        v = totV>0 ? (vs[state.mapCand]||0)/totV*100 : 0;
+      }
+      values[key] = v;
+      if(v!=null){
+        if(v < rangeMin) rangeMin = v;
+        if(v > rangeMax) rangeMax = v;
+      }
+    }
+    if(rangeMin === Infinity){ rangeMin=0; rangeMax=100; }
+
+    // HSL lerp helper
+    const accentHex = '#5a7a3a';
+    function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,(n>>8)&255,n&255]; }
+    function rgbToStr(r,g,b){ return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`; }
+    function lerpColor(t, from, to){
+      // t 0..1 entre 'from' y 'to'
+      return rgbToStr(
+        from[0]+(to[0]-from[0])*t,
+        from[1]+(to[1]-from[1])*t,
+        from[2]+(to[2]-from[2])*t
+      );
+    }
+    const neutralLight = [245, 245, 240];   // #f5f5f0
+    const accentRgb = hexToRgb(accentHex);
+    const redRgb = [160, 64, 64];
+
+    function colorFor(key, val){
+      if(mode === 'winner'){
+        // líder en este territorio → color del candidatx
+        const vs = DB.data[key]?.[lastI]?.votes || {};
+        let best=null, bv=-1;
+        for(const [c,v] of Object.entries(vs)){
+          const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+          if(v>bv){bv=v; best=c;}
+        }
+        if(!best) return '#e0e0e0';
+        return colorForCastCode(best) || '#888';
+      }
+      if(val == null) return '#eee';
+      const span = Math.max(0.001, rangeMax - rangeMin);
+      let t = (val - rangeMin) / span;
+      t = Math.max(0, Math.min(1, t));
+      return lerpColor(t, neutralLight, accentRgb);
+    }
+
+    // determinar si el color de fondo es oscuro (para texto blanco) o claro (texto oscuro)
+    function isLight(rgbStr){
+      const m = rgbStr.match(/\d+/g);
+      if(!m) return true;
+      const [r,g,b] = m.map(Number);
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      return lum > 160;
+    }
+
+    // render celdas
+    const cells = [];
+    for(const [key, spec] of Object.entries(MAP_GRID)){
+      const [col, row, sig] = spec;
+      const dd = DB.data[key]?.[lastI] || {};
+      const v = values[key];
+      const color = colorFor(key, v);
+      const isExt = (DB.nodes[key]?.ambito===2) || (key.startsWith && key.startsWith('9'));
+      const added = state.places.includes(key);
+
+      // valor a mostrar
+      let displayVal = '';
+      if(mode === 'avance') displayVal = `${(dd.av||0).toFixed(0)}%`;
+      else if(mode === 'part') displayVal = `${(dd.part||0).toFixed(0)}%`;
+      else if(mode === 'margin') displayVal = v!=null ? `${v.toFixed(1)}pp` : '—';
+      else if(mode === 'candidato' && v!=null) displayVal = `${v.toFixed(1)}%`;
+      else if(mode === 'winner'){
+        // mostrar % del líder
+        const vs = dd.votes || {};
+        let totV=0, best=-1;
+        for(const c in vs){
+          const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+          totV += vs[c];
+          if(vs[c] > best) best = vs[c];
+        }
+        if(totV>0 && best>0) displayVal = `${(best/totV*100).toFixed(0)}%`;
+      }
+
+      // tooltip extendido
+      const nombre = DB.nodes[key]?.nombre || sig;
+      const vs = dd.votes || {};
+      let totV=0, leaderCode=null, leaderVotes=-1;
+      for(const c in vs){
+        const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+        totV += vs[c];
+        if(vs[c] > leaderVotes){ leaderVotes = vs[c]; leaderCode = c; }
+      }
+      const leaderName = leaderCode ? displayName(leaderCode).split(' ').slice(-1)[0] : '—';
+      const leaderPct = totV>0 ? (leaderVotes/totV*100) : 0;
+      const tipText = `${nombre} · avance ${(dd.av||0).toFixed(1)}% · líder: ${leaderName} ${leaderPct.toFixed(1)}%`;
+
+      const lightCls = isLight(color) ? ' light' : '';
+      const addedCls = added ? ' added' : '';
+      const extCls = isExt ? ' ext' : '';
+      cells.push(`<div class="map-cell${lightCls}${addedCls}${extCls}" style="grid-column:${col+1};grid-row:${row+1};background:${color}" data-key="${key}" title="${tipText.replace(/"/g,'&quot;')}">
+        <span class="mc-sig">${sig}</span>
+        <span class="mc-val">${displayVal}</span>
+      </div>`);
+    }
+    wrap.innerHTML = cells.join('');
+
+    // click handlers
+    wrap.querySelectorAll('.map-cell').forEach(el => {
+      el.onclick = () => {
+        const k = el.dataset.key;
+        if(!k) return;
+        if(state.places.includes(k)){
+          state.places = state.places.filter(x => x !== k);
+        } else {
+          state.places.push(k);
+        }
+        persist();
+        renderGrid(); renderBrowser(); renderMap();
+      };
+    });
+
+    // leyenda
+    let lgHTML = '';
+    if(mode === 'winner'){
+      // mostrar chips con los top 6 candidatxs que lideran en algún territorio
+      const leaders = {};
+      for(const key of Object.keys(MAP_GRID)){
+        const vs = DB.data[key]?.[lastI]?.votes || {};
+        let best=null, bv=-1;
+        for(const [c,v] of Object.entries(vs)){
+          const cc = candByCode(c); if(!cc || isBN(cc.agr)) continue;
+          if(v>bv){bv=v; best=c;}
+        }
+        if(best){ leaders[best] = (leaders[best]||0) + 1; }
+      }
+      const ranked = Object.entries(leaders).sort((a,b)=>b[1]-a[1]);
+      lgHTML = ranked.map(([code,count]) => {
+        const color = colorForCastCode(code) || '#888';
+        const nm = displayName(code).split(' ').slice(-2).join(' ');
+        return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span class="lg-swatch" style="background:${color}"></span>${nm} <b>(${count})</b></span>`;
+      }).join('');
+    } else {
+      const lbl = {avance:'% actas', part:'% participación', margin:'margen (pp)', candidato:'% del candidatx'}[mode];
+      lgHTML = `<span>${rangeMin.toFixed(1)}</span><span class="lg-grad"></span><span>${rangeMax.toFixed(1)} <b>${lbl}</b></span>`;
+    }
+    legend.innerHTML = lgHTML;
+
+    // renderizar select de candidatxs si modo candidato
+    const selWrap = document.getElementById('mapCandSel');
+    if(mode === 'candidato'){
+      selWrap.style.display = '';
+      if(!selWrap.dataset.populated){
+        // poblar con el cast + posibilidad de cualquier otro
+        const opts = state.cast.map(code => {
+          const nm = displayName(code);
+          return `<option value="${code}">${nm}</option>`;
+        }).join('');
+        selWrap.innerHTML = opts;
+        selWrap.dataset.populated = '1';
+      }
+      if(!state.mapCand && state.cast.length) state.mapCand = state.cast[0];
+      selWrap.value = state.mapCand || '';
+    } else {
+      selWrap.style.display = 'none';
+      delete selWrap.dataset.populated;
+    }
+  }
+
   function renderCastilloCompare(){
     const box = document.getElementById('csCompare');
     if(!CASTILLO){ box.style.display='none'; return; }
@@ -1869,7 +2172,7 @@
           state.csSort = { col, dir: 'desc' };
         }
         persist();
-        renderCastilloCompare();
+        renderCastilloCompare(); renderMap();
       };
     });
 
@@ -1998,7 +2301,7 @@
       } else if(n.nivel === 'provincia'){
         state.drillProv = (state.drillProv===key && already) ? null : key;
       }
-      persist(); renderGrid(); renderBrowser(); renderDuelos();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
     });
   }
 
@@ -2035,7 +2338,7 @@
       document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
         state.yMode = b.dataset.mode;
         document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
-        persist(); renderGrid(); renderDuelos(); renderInforme(); renderCastilloCompare();
+        persist(); renderGrid(); renderDuelos(); renderInforme(); renderCastilloCompare(); renderMap();
       });
       document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
@@ -2063,7 +2366,7 @@
       }
       document.getElementById('clearAll').onclick = () => {
         if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
-          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos();
+          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
         }
       };
 
@@ -2087,6 +2390,26 @@
       renderBrowser();
       renderDuelos();
       renderCastilloCompare();
+      renderMap();
+
+      // wire del selector de modo del mapa
+      document.getElementById('mapModeBox').querySelectorAll('button').forEach(b => {
+        b.onclick = () => {
+          state.mapMode = b.dataset.mapmode;
+          document.getElementById('mapModeBox').querySelectorAll('button').forEach(x => x.classList.toggle('act', x.dataset.mapmode === state.mapMode));
+          persist();
+          renderMap();
+        };
+      });
+      document.querySelector(`#mapModeBox button[data-mapmode="${state.mapMode}"]`)?.classList.add('act');
+      document.querySelectorAll('#mapModeBox button').forEach(b => { if(b.dataset.mapmode !== state.mapMode) b.classList.remove('act'); });
+
+      // wire del select de candidato en modo "candidato"
+      document.getElementById('mapCandSel').onchange = (e) => {
+        state.mapCand = e.target.value;
+        persist();
+        renderMap();
+      };
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>

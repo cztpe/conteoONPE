@@ -66,6 +66,16 @@
   .info-value .up{color:var(--accent)}
   .info-value .down{color:var(--down)}
   .info-sub{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* tarjetas-lista del informe */
+  .info-card.info-list{min-height:auto}
+  .info-list .info-title.up{color:var(--accent)}
+  .info-list .info-title.down{color:var(--down)}
+  .info-list-body{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+  .info-line{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:baseline;font-size:11px;padding:1px 0;border-bottom:1px dotted var(--line)}
+  .info-line:last-child{border-bottom:0}
+  .info-line-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+  .info-line-pa{color:var(--faint);font-size:10px;margin-left:3px}
+  .info-line-v{font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px;flex-shrink:0}
 
   /* legend */
   .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:#fcfcfc}
@@ -960,7 +970,6 @@
     const marginV = leader && runner ? leader.v - runner.v : 0;
     const marginPp = leader && runner ? leader.pc - runner.pc : 0;
 
-    // más sube / más cae (entre firstI y lastI, solo si hay 2+ activos)
     let mostUp = null, mostDown = null;
     if(aIdx.length >= 2){
       for(const code of state.cast){
@@ -970,20 +979,17 @@
       }
     }
 
-    // duelo más cerrado (entre candidatxs consecutivos en ranking)
     let closest = null;
     for(let i=0; i<ranked.length-1; i++){
       const diff = ranked[i].v - ranked[i+1].v;
       if(closest===null || diff < closest.diff) closest = {a: ranked[i], b: ranked[i+1], diff};
     }
 
-    // votos procesados en la ventana activa
     let nuevosVotos = null;
     if(aIdx.length >= 2){
       nuevosVotos = totalValidVotesAt(ROOT, lastI) - totalValidVotesAt(ROOT, firstI);
     }
 
-    // territorios ganados por el líder
     let depsLider = 0;
     const deps = DB.nodes[ROOT].children;
     for(const k of deps){
@@ -996,73 +1002,114 @@
       if(best === leader?.code) depsLider++;
     }
 
+    // === conteo territorial ===
+    // separar peruano vs extranjero por nombre (heurística: contiene "EXTRANJERO" o ubigeo empieza con 9)
+    function isExtranjero(key){
+      const n = DB.nodes[key]; if(!n) return false;
+      const nm = (n.nombre||'').toUpperCase();
+      return nm.includes('EXTRANJERO') || (n.ubigeo && n.ubigeo.startsWith('9'));
+    }
+    const depsAll = DB.nodes[ROOT].children.map(k => ({
+      key: k,
+      nombre: DB.nodes[k].nombre,
+      av: DB.data[k]?.[lastI]?.av || 0,
+      ext: isExtranjero(k)
+    }));
+    const depsByAvAsc = [...depsAll].sort((a,b)=>a.av-b.av);
+    const depsByAvDesc = [...depsAll].sort((a,b)=>b.av-a.av);
+    const top3 = depsByAvDesc.slice(0,3);
+    const bot5 = depsByAvAsc.slice(0,5);
+
+    // distritos: todos los nodos con nivel distrito
+    const distNodes = Object.entries(DB.nodes).filter(([k,n])=>n.nivel==='distrito').map(([k,n])=>({
+      key:k, nombre:n.nombre, parent: DB.nodes[n.parent]?.nombre,
+      av: DB.data[k]?.[lastI]?.av || 0
+    }));
+    const distByAvAsc = [...distNodes].sort((a,b)=>a.av-b.av);
+    const distByAvDesc = [...distNodes].sort((a,b)=>b.av-a.av);
+    const dTop3 = distByAvDesc.slice(0,3);
+    const dBot5 = distByAvAsc.slice(0,5);
+
+    // 100% completos (deptos y distritos)
+    const depsCompletos = depsAll.filter(d=>d.av>=99.95).length;
+    const distCompletos = distNodes.filter(d=>d.av>=99.95).length;
+
+    // extranjero (puede ser "PERUANOS RESIDENTES EN EL EXTRANJERO" como un solo "depto")
+    const extranjero = depsAll.find(d=>d.ext);
+
     const fmtDelta = (d, m) => m==='pct' ? (d>=0?'+':'')+d.toFixed(2)+'pp' : (d>=0?'+':'')+fmtS(d);
+    const placeLine = (item, withParent=false) => `<div class="info-line"><span class="info-line-nm">${item.nombre}${withParent&&item.parent?` <span class="info-line-pa">${item.parent}</span>`:''}</span><span class="info-line-v">${item.av.toFixed(1)}%</span></div>`;
 
     const cards = [];
-    // 1. Líder
-    cards.push({
-      title: 'líder nacional',
+    cards.push({ title: 'líder nacional',
       value: `<span style="color:${leader?colorForCastCode(leader.code):'var(--fg)'}">${leaderName.split(' ').slice(-2).join(' ')}</span>`,
-      sub: leader ? `${leader.pc.toFixed(2)}% · ${fmt(leader.v)} votos` : ''
-    });
-    // 2. Margen sobre 2°
-    cards.push({
-      title: 'margen sobre 2°',
+      sub: leader ? `${leader.pc.toFixed(2)}% · ${fmt(leader.v)} votos` : '' });
+    cards.push({ title: 'margen sobre 2°',
       value: runner ? `+${marginPp.toFixed(2)}pp` : '—',
-      sub: runner ? `+${fmt(marginV)} votos · vs ${displayName(runner.code).split(' ').slice(-1)[0]}` : ''
-    });
-    // 3. Más sube
-    cards.push({
-      title: 'más crece',
+      sub: runner ? `+${fmt(marginV)} votos · vs ${displayName(runner.code).split(' ').slice(-1)[0]}` : '' });
+    cards.push({ title: 'más crece',
       value: mostUp ? `<span class="up">${displayName(mostUp.code).split(' ').slice(-2).join(' ')}</span>` : '—',
-      sub: mostUp ? `${fmtDelta(mostUp.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots'
-    });
-    // 4. Más baja
-    cards.push({
-      title: 'más cae',
+      sub: mostUp ? `${fmtDelta(mostUp.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots' });
+    cards.push({ title: 'más cae',
       value: mostDown ? `<span class="down">${displayName(mostDown.code).split(' ').slice(-2).join(' ')}</span>` : '—',
-      sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots'
-    });
-    // 5. Duelo más cerrado
-    cards.push({
-      title: 'duelo más cerrado',
+      sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots' });
+    cards.push({ title: 'duelo más cerrado',
       value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
-      sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : ''
-    });
-    // 6. Deptos ganados por el líder
-    cards.push({
-      title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
-      value: `${depsLider} / 25`,
-      sub: depsLider>=13 ? 'mayoría territorial' : 'sin mayoría territorial'
-    });
-    // 7. Participación
-    cards.push({
-      title: 'participación',
+      sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : '' });
+    cards.push({ title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
+      value: `${depsLider} / ${depsAll.length}`,
+      sub: depsLider*2 >= depsAll.length ? 'mayoría territorial' : 'sin mayoría territorial' });
+    cards.push({ title: 'participación',
       value: `${(nac.part||0).toFixed(2)}%`,
-      sub: 'de ciudadanxs habilitadxs'
-    });
-    // 8. Avance de actas
-    cards.push({
-      title: 'avance de actas',
+      sub: 'de ciudadanxs habilitadxs' });
+    cards.push({ title: 'avance de actas',
       value: `${(nac.av||0).toFixed(2)}%`,
-      sub: `${fmt(nac.cont)} / ${fmt(nac.total)}`
-    });
-    // 9. Votos nuevos contabilizados
+      sub: `${fmt(nac.cont)} / ${fmt(nac.total)}` });
     if(nuevosVotos !== null){
-      cards.push({
-        title: 'votos nuevos contabilizados',
+      cards.push({ title: 'votos nuevos contabilizados',
         value: fmtS(nuevosVotos),
-        sub: `entre s${firstI} → s${lastI} (válidos)`
-      });
+        sub: `entre s${firstI} → s${lastI} (válidos)` });
+    }
+    cards.push({ title: 'completados',
+      value: `${depsCompletos} / ${depsAll.length} <span class="info-sub" style="display:inline">deptos</span>`,
+      sub: `${distCompletos} / ${distNodes.length} distritos al 100%` });
+    if(extranjero){
+      cards.push({ title: 'extranjero',
+        value: `${extranjero.av.toFixed(1)}%`,
+        sub: extranjero.nombre.toLowerCase() });
+    } else {
+      cards.push({ title: 'extranjero',
+        value: `<span style="color:var(--muted)">no disponible</span>`,
+        sub: 'no incluido en este endpoint de onpe' });
     }
 
-    grid.innerHTML = cards.map(c => `
+    // tarjetas-lista (ocupan más alto, con varias filas)
+    const top3HTML = top3.map(d => placeLine(d)).join('');
+    const bot5HTML = bot5.map(d => placeLine(d)).join('');
+    const dTop3HTML = dTop3.map(d => placeLine(d, true)).join('');
+    const dBot5HTML = dBot5.map(d => placeLine(d, true)).join('');
+
+    const listCards = [
+      {title: 'deptos más avanzados', body: top3HTML, accent: 'up'},
+      {title: 'deptos que faltan más', body: bot5HTML, accent: 'down'},
+      {title: 'distritos más avanzados', body: dTop3HTML, accent: 'up'},
+      {title: 'distritos que faltan más', body: dBot5HTML, accent: 'down'}
+    ];
+
+    const cardsHTML = cards.map(c => `
       <div class="info-card">
         <div class="info-title">${c.title}</div>
         <div class="info-value">${c.value}</div>
         <div class="info-sub">${c.sub}</div>
-      </div>
-    `).join('');
+      </div>`).join('');
+
+    const listsHTML = listCards.map(c => `
+      <div class="info-card info-list">
+        <div class="info-title ${c.accent==='up'?'up':'down'}">${c.title}</div>
+        <div class="info-list-body">${c.body}</div>
+      </div>`).join('');
+
+    grid.innerHTML = cardsHTML + listsHTML;
   }
 
   // ---------- duelos ----------

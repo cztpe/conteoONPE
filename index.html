@@ -189,8 +189,8 @@
   .card-actions button:hover{border-color:var(--down);color:var(--down)}
   .card-actions button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
   .card-actions button.act:hover{background:#4a6a2a;border-color:#4a6a2a;color:#fff}
-  .chart-wrap{padding:8px 4px 4px;position:relative;overflow-x:auto;overflow-y:hidden}
-  .chart-wrap svg{height:auto;display:block;min-width:100%}
+  .chart-wrap{padding:8px 4px 4px;position:relative}
+  .chart-wrap svg{width:100%;height:auto;display:block}
   .card-foot{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px}
   .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
   .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1116,8 +1116,6 @@
             ${breakdown}
           </div>
           <div class="card-actions">
-            <button data-act="zoom-in" title="acercar gráfico (más grande)">+</button>
-            <button data-act="zoom-out" title="alejar gráfico">−</button>
             ${canRemove?`<button data-act="rm">×</button>`:''}
           </div>
         </div>
@@ -1133,24 +1131,6 @@
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
       persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
-    });
-
-    // zoom visual: + agranda el SVG, − lo reduce. chart-wrap tiene overflow-x auto.
-    el.querySelectorAll('[data-act="zoom-in"]').forEach(b => b.onclick = () => {
-      const card = b.closest('.card');
-      const svg = card.querySelector('.chart-wrap svg');
-      if(!svg) return;
-      const cur = parseInt(svg.style.width || '100', 10) || 100;
-      const next = Math.min(cur + 100, 500); // max 500%
-      svg.style.width = next + '%';
-    });
-    el.querySelectorAll('[data-act="zoom-out"]').forEach(b => b.onclick = () => {
-      const card = b.closest('.card');
-      const svg = card.querySelector('.chart-wrap svg');
-      if(!svg) return;
-      const cur = parseInt(svg.style.width || '100', 10) || 100;
-      const next = Math.max(cur - 100, 100); // min 100%
-      svg.style.width = next + '%';
     });
 
     // tooltips por columna (hit-zone por snapshot)

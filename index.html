@@ -176,18 +176,14 @@
   .card-actions button.act:hover{background:#4a6a2a;border-color:#4a6a2a;color:#fff}
   .chart-wrap{padding:8px 4px 4px;position:relative}
   .chart-wrap svg{width:100%;height:auto;display:block}
-  /* brush de zoom: overlay que captura arrastre horizontal. Oculto por default;
-     solo activo cuando la card tiene la clase .zoom-mode (toggleable por botón). */
-  .chart-brush-overlay{position:absolute;top:8px;left:4px;right:4px;bottom:4px;cursor:crosshair;z-index:5;display:none}
-  .card.zoom-mode .chart-brush-overlay{display:block}
-  .chart-brush-overlay.dragging{cursor:col-resize}
-  .chart-brush-rect{position:absolute;top:0;bottom:0;background:rgba(90,122,58,0.12);border-left:1px dashed var(--accent);border-right:1px dashed var(--accent);pointer-events:none;display:none}
-  .chart-brush-rect.active{display:block}
+  /* zoom por 2 clicks: marca de primer click */
   .zoom-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;margin-left:6px;background:rgba(90,122,58,0.05)}
   .zoom-badge .rm{cursor:pointer;font-weight:600;padding:0 2px}
   .zoom-badge .rm:hover{color:var(--down)}
-  .zoom-hint{position:absolute;bottom:6px;right:10px;font-size:9px;color:var(--accent);font-style:italic;pointer-events:none;background:rgba(255,255,255,0.9);padding:1px 4px;display:none}
+  .zoom-hint{position:absolute;bottom:6px;right:10px;font-size:9px;color:var(--accent);font-style:italic;pointer-events:none;background:rgba(255,255,255,0.9);padding:2px 5px;display:none;z-index:3}
   .card.zoom-mode .zoom-hint{display:block}
+  .card.zoom-mode .chart-wrap{outline:2px dashed var(--accent);outline-offset:-2px}
+  .card.zoom-mode .hit{cursor:pointer !important}
   .card-foot{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px}
   .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
   .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1043,7 +1039,12 @@
   }
 
   function cardFoot(key){
-    const aIdx = activeIndices();
+    let aIdx = activeIndices();
+    // aplicar zoom si existe
+    const zoom = state.zooms?.[key];
+    if(zoom && Array.isArray(zoom) && zoom.length===2){
+      aIdx = aIdx.filter(i => i >= zoom[0] && i <= zoom[1]);
+    }
     if(aIdx.length===0) return '<div class="card-foot" style="color:var(--muted);grid-template-columns:1fr;text-align:center;font-style:italic">sin snapshots activos</div>';
     const i = aIdx[aIdx.length-1];
     const prev = aIdx.length>1 ? aIdx[aIdx.length-2] : null;
@@ -1128,14 +1129,13 @@
             ${breakdown}
           </div>
           <div class="card-actions">
-            <button data-act="zoom-mode" title="activar selección de rango con arrastre del mouse">⤢ zoom</button>
+            <button data-act="zoom-mode" title="zoom: click en 2 puntos del gráfico para ampliar ese rango">⤢ zoom</button>
             ${canRemove?`<button data-act="rm">×</button>`:''}
           </div>
         </div>
         <div class="chart-wrap">
           ${buildChart(key, state.yMode)}
-          <div class="chart-brush-overlay" data-key="${key}"><div class="chart-brush-rect"></div></div>
-          <div class="zoom-hint">arrastra en el gráfico para hacer zoom a un rango</div>
+          <div class="zoom-hint" id="zh-${key}">click en 2 puntos del gráfico para definir el rango</div>
         </div>
         ${cardFoot(key)}
       </div>`;
@@ -1158,89 +1158,55 @@
       renderGrid();
     });
 
-    // toggle modo zoom (activa overlay de brush en la card)
+    // toggle modo zoom (activa zoom por 2 clicks en la card)
+    const _zoomFirst = {};  // key → primer snap index seleccionado
     el.querySelectorAll('[data-act="zoom-mode"]').forEach(b => b.onclick = (e) => {
       e.stopPropagation();
       const card = e.target.closest('.card');
+      const key = card.dataset.key;
+      const entering = !card.classList.contains('zoom-mode');
       card.classList.toggle('zoom-mode');
       b.classList.toggle('act');
+      if(entering){
+        delete _zoomFirst[key];
+        const hint = document.getElementById('zh-'+key);
+        if(hint) hint.textContent = 'click en el primer punto del rango';
+      }
     });
 
-    // brush de zoom: arrastre horizontal sobre el overlay para definir rango
-    el.querySelectorAll('.chart-brush-overlay').forEach(ov => {
-      const key = ov.dataset.key;
-      const rect = ov.querySelector('.chart-brush-rect');
-      let dragging = false;
-      let startX = 0;
-      let currentX = 0;
-
-      ov.addEventListener('mousedown', (e) => {
-        // ignorar click derecho y si se hizo click en un hit (para no interferir con tooltip)
-        if(e.button !== 0) return;
-        // solo iniciar drag si arrastra al menos unos pixeles
-        const r = ov.getBoundingClientRect();
-        startX = e.clientX - r.left;
-        currentX = startX;
-        dragging = true;
-        ov.classList.add('dragging');
-        rect.style.left = startX + 'px';
-        rect.style.width = '0px';
-        e.preventDefault();
-      });
-
-      document.addEventListener('mousemove', (e) => {
-        if(!dragging) return;
-        const r = ov.getBoundingClientRect();
-        currentX = Math.max(0, Math.min(r.width, e.clientX - r.left));
-        const left = Math.min(startX, currentX);
-        const width = Math.abs(currentX - startX);
-        rect.style.left = left + 'px';
-        rect.style.width = width + 'px';
-        if(width > 3) rect.classList.add('active');
-      });
-
-      document.addEventListener('mouseup', (e) => {
-        if(!dragging) return;
-        dragging = false;
-        ov.classList.remove('dragging');
-        const r = ov.getBoundingClientRect();
-        const dragWidth = Math.abs(currentX - startX);
-        // si el arrastre fue muy corto, tratar como click — no hacer zoom
-        if(dragWidth < 8){
-          rect.classList.remove('active');
-          return;
-        }
-        // calcular rango de snapshots en base a los hits dentro del overlay
-        // cada hit tiene posición relativa al SVG; usamos getBoundingClientRect de los hits
-        // para ver cuáles caen dentro del rango [leftPx, rightPx]
-        const card = ov.closest('.card');
-        const hits = card.querySelectorAll('.hit[data-place="' + key + '"]');
-        const leftPx = Math.min(startX, currentX);
-        const rightPx = Math.max(startX, currentX);
-        const overlayRect = ov.getBoundingClientRect();
-        const leftAbs = overlayRect.left + leftPx;
-        const rightAbs = overlayRect.left + rightPx;
-        const inRange = [];
-        hits.forEach(h => {
-          const hr = h.getBoundingClientRect();
-          const cx = (hr.left + hr.right) / 2;
-          if(cx >= leftAbs && cx <= rightAbs){
-            inRange.push(parseInt(h.dataset.snap, 10));
+    // click en hits: en modo zoom, captura los 2 clicks
+    el.querySelectorAll('.hit').forEach(hit => {
+      hit.addEventListener('click', (e) => {
+        const card = e.target.closest('.card');
+        if(!card || !card.classList.contains('zoom-mode')) return;
+        e.stopPropagation();
+        const key = card.dataset.key;
+        const sn = parseInt(hit.dataset.snap, 10);
+        const hint = document.getElementById('zh-'+key);
+        if(_zoomFirst[key] == null){
+          // primer click
+          _zoomFirst[key] = sn;
+          if(hint) hint.textContent = `inicio: s${sn} · ahora click en el punto final`;
+          // marcar visualmente el punto seleccionado
+          hit.setAttribute('fill', 'rgba(90,122,58,0.2)');
+        } else {
+          // segundo click → aplicar zoom
+          const first = _zoomFirst[key];
+          const zs = Math.min(first, sn);
+          const ze = Math.max(first, sn);
+          delete _zoomFirst[key];
+          if(zs === ze){
+            // mismo punto, cancelar
+            if(hint) hint.textContent = 'click en 2 puntos distintos del gráfico';
+            return;
           }
-        });
-        rect.classList.remove('active');
-        if(inRange.length < 2){
-          // menos de 2 snapshots en rango, no vale la pena el zoom
-          return;
+          state.zooms[key] = [zs, ze];
+          persist();
+          // salir del modo zoom
+          card.classList.remove('zoom-mode');
+          card.querySelector('[data-act="zoom-mode"]')?.classList.remove('act');
+          renderGrid();
         }
-        const zs = Math.min(...inRange);
-        const ze = Math.max(...inRange);
-        state.zooms[key] = [zs, ze];
-        persist();
-        // al completar zoom con éxito, salir del modo zoom para volver al uso normal
-        const cardEl = ov.closest('.card');
-        if(cardEl) cardEl.classList.remove('zoom-mode');
-        renderGrid();
       });
     });
 

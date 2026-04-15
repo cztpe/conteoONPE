@@ -606,15 +606,18 @@
 
   // ---------- descubrimiento ----------
   const FILE_RE = /^onpe_data_.*\.json$/i;
+  // subcarpeta donde viven los snapshots dentro del repo (puede sobreescribirse con ?subdir=...)
+  const SNAPSHOTS_SUBDIR = (new URLSearchParams(location.search)).get('subdir') ?? 'snapshots';
   function parseLocation(){
     const params = new URLSearchParams(location.search);
     const override = params.get('repo');
     const overridePath = params.get('path');
+    const subdir = SNAPSHOTS_SUBDIR ? (SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'') + '/') : '';
     if(override){
       const [owner,repo]=override.split('/');
       let p = overridePath || location.pathname;
       if(!p.endsWith('/')) p = p.replace(/\/[^/]*$/, '/');
-      return {owner, repo, path:p};
+      return {owner, repo, path: p + subdir};
     }
     const host = location.hostname;
     if(!host.endsWith('.github.io')) return null;
@@ -622,10 +625,10 @@
     let path = location.pathname;
     if(path.endsWith('.html')) path = path.replace(/\/[^/]+$/, '/');
     if(!path.endsWith('/')) path += '/';
-    const userRepo = {owner, repo: host, path};
+    const userRepo = {owner, repo: host, path: path + subdir};
     const segs = path.split('/').filter(Boolean);
     let projRepo = null;
-    if(segs.length>=1) projRepo = {owner, repo: segs[0], path: '/' + segs.slice(1).join('/') + (segs.length>1?'/':'')};
+    if(segs.length>=1) projRepo = {owner, repo: segs[0], path: '/' + segs.slice(1).join('/') + (segs.length>1?'/':'') + subdir};
     return {userRepo, projRepo};
   }
   async function listViaGithub({owner,repo,path}){
@@ -639,10 +642,18 @@
   async function discover(){
     const status = document.getElementById('status');
     const params = new URLSearchParams(location.search);
-    const manifestUrl = params.get('manifest') || './manifest.json';
+    const subdir = SNAPSHOTS_SUBDIR ? (SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'') + '/') : '';
+    const manifestUrl = params.get('manifest') || ('./' + subdir + 'manifest.json');
     try{
       const r = await fetch(manifestUrl+'?t='+Date.now(),{cache:'no-store'});
-      if(r.ok){ const arr = await r.json(); if(Array.isArray(arr)&&arr.length){ status.textContent=`manifest: ${arr.length} snapshot(s)`; return arr.map(n=>({name:n,url:n})); } }
+      if(r.ok){
+        const arr = await r.json();
+        if(Array.isArray(arr)&&arr.length){
+          status.textContent=`manifest: ${arr.length} snapshot(s)`;
+          // si los nombres no incluyen subdir, prefijarlos
+          return arr.map(n=>({name:n, url: n.startsWith('http') || n.includes('/') ? n : ('./' + subdir + n)}));
+        }
+      }
     }catch(e){}
     const loc = parseLocation();
     if(loc){
@@ -650,7 +661,7 @@
       try{ status.textContent=`github api: ${loc.userRepo.owner}/${loc.userRepo.repo}${loc.userRepo.path}`; const list=await listViaGithub(loc.userRepo); if(list.length) return list; }catch(e){}
       if(loc.projRepo){ try{ status.textContent=`github api: ${loc.projRepo.owner}/${loc.projRepo.repo}${loc.projRepo.path}`; const list=await listViaGithub(loc.projRepo); if(list.length) return list; }catch(e){} }
     }
-    throw new Error('no encontré snapshots. sube archivos con el patrón onpe_data_*.json en la misma carpeta del repo.');
+    throw new Error('no encontré snapshots. sube archivos con el patrón onpe_data_*.json en la carpeta ./' + subdir + ' del repo, o crea un manifest.json ahí.');
   }
   async function fetchAll(files){
     const results = await Promise.all(files.map(async f=>{

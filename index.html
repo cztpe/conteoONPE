@@ -2062,20 +2062,23 @@
       const votes = dd.votes || {};
       let vAct = 0;
       for(const c in votes) vAct += votes[c];
-      // === PROYECCIÓN DE VOTOS PENDIENTES ===
-      // Estrategia A: para nivel depto (peruano) y continente, usar % participación esperada
-      //   votos_esperados_total = padron × (pct_esperado/100)
-      //   votos_pend = votos_esperados_total − vAct
-      // Estrategia B: para sub-niveles sin padrón directo, extrapolar por actas:
-      //   votos_pend = (vAct / cont) × pend
+      // === PROYECCIÓN HÍBRIDA DE VOTOS PENDIENTES ===
+      // Si avance >= 70% → extrapolación por actas (más confiable, ya hay evidencia)
+      // Si avance < 70% → padrón × % esperado 2018 (ancla externa)
+      // Para sub-niveles sin padrón → siempre extrapolación por actas
       let vPend = null;
       const padron = padronOf(k);
       const expPct = expectedParticipationPct(k);
-      if(padron != null && expPct != null){
+      const HIGH_AVANCE_THRESHOLD = 70;
+      if(av >= HIGH_AVANCE_THRESHOLD && cont > 0 && pend > 0){
+        // extrapolación por actas: si avance es alto, esto es más fiable
+        vPend = Math.round(vAct * pend / cont);
+      } else if(padron != null && expPct != null){
+        // baseline 2018 cuando avance es bajo
         const esperados = padron * (expPct/100);
         vPend = Math.max(0, esperados - vAct);
       } else if(cont > 0 && pend > 0){
-        // extrapolación lineal por actas (asume misma part. en actas restantes)
+        // fallback para sub-niveles sin padrón
         vPend = Math.round(vAct * pend / cont);
       } else {
         vPend = 0;
@@ -2115,8 +2118,8 @@
     const baselineNote = PARTICIPACION
       ? `<div class="ps-card ps-baseline-note">
           <div class="ps-lbl">supuestos de proyección</div>
-          <div class="ps-val" style="font-size:11px;line-height:1.5;font-weight:400">part. perú 2018 (≈79% prom.) · extranjero ${PARTICIPACION.meta?.extranjero_default_pct ?? 40}%</div>
-          <div class="ps-sub">para sub-niveles sin padrón: extrapolación lineal por actas</div>
+          <div class="ps-val" style="font-size:11px;line-height:1.5;font-weight:400">avance ≥70% → extrapolación por actas · avance <70% → part. 2018 (perú) o ${PARTICIPACION.meta?.extranjero_default_pct ?? 40}% (extranjero)</div>
+          <div class="ps-sub">híbrido: usa la fuente más fiable según el avance del territorio</div>
         </div>`
       : `<div class="ps-card ps-baseline-note">
           <div class="ps-lbl">aviso</div>

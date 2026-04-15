@@ -2451,7 +2451,11 @@
 
   // ---------- browser ----------
   function renderBrowser(){
-    const deps = DB.nodes[ROOT].children;
+    const allDeps = DB.nodes[ROOT].children;
+    // Separar deptos peruanos del nodo virtual del extranjero
+    const isExtroot = (k) => DB.nodes[k]?.ambito === 2 || (DB.nodes[k]?.ubigeo||'').startsWith('9');
+    const depsPe = allDeps.filter(k => !isExtroot(k));
+    const extRoot = allDeps.find(isExtroot);
     const lastI = (() => { const a = activeIndices(); return a.length ? a[a.length-1] : last(); })();
     function chipHTML(key){
       const n = DB.nodes[key];
@@ -2468,24 +2472,53 @@
         ${added?'<span class="x">×</span>':''}
       </span>`;
     }
-    document.getElementById('brDeps').innerHTML = deps.map(chipHTML).join('');
+    // departamentos peruanos + el nodo extranjero como uno más
+    const allChips = [...depsPe];
+    if(extRoot) allChips.push(extRoot);
+    document.getElementById('brDeps').innerHTML = allChips.map(chipHTML).join('');
 
     const provSec = document.getElementById('brProvSec');
     if(state.drillDep && DB.nodes[state.drillDep]){
       provSec.style.display = '';
-      document.getElementById('brDepName').textContent = DB.nodes[state.drillDep].nombre;
-      const provs = DB.nodes[state.drillDep].children || [];
+      const drillNode = DB.nodes[state.drillDep];
+      // Si es el nodo extranjero, etiquetarlo como "continentes" en el header
+      const isExt = isExtroot(state.drillDep);
+      document.getElementById('brDepName').textContent = drillNode.nombre;
+      // ajustar el título de la sección dinámicamente
+      const provHeader = provSec.querySelector('h3');
+      if(provHeader){
+        provHeader.innerHTML = isExt
+          ? `continentes en <b>${drillNode.nombre}</b> <span class="hint">click: agregar y ver sus países</span>`
+          : `provincias de <b id="brDepName">${drillNode.nombre}</b> <span class="hint">click: agregar y ver sus distritos</span>`;
+      }
+      const provs = drillNode.children || [];
       const box = document.getElementById('brProvs');
-      box.innerHTML = provs.length ? provs.map(chipHTML).join('') : '<div class="br-placeholder">sin provincias</div>';
+      box.innerHTML = provs.length ? provs.map(chipHTML).join('') : '<div class="br-placeholder">sin sub-niveles</div>';
     } else { provSec.style.display = 'none'; }
 
     const distSec = document.getElementById('brDistSec');
     if(state.drillProv && DB.nodes[state.drillProv]){
       distSec.style.display = '';
-      document.getElementById('brProvName').textContent = DB.nodes[state.drillProv].nombre;
-      const dists = DB.nodes[state.drillProv].children || [];
+      const drillNode = DB.nodes[state.drillProv];
+      const drillParent = state.drillDep ? DB.nodes[state.drillDep] : null;
+      const isExt = drillParent && isExtroot(state.drillDep);
+      document.getElementById('brProvName').textContent = drillNode.nombre;
+      const distHeader = distSec.querySelector('h3');
+      if(distHeader){
+        // si estamos drilleando dentro del extranjero, los "distritos" son países o ciudades
+        // Nivel: continente → país → ciudad
+        // Si drillProv es un continente (ej: AMÉRICA), drilling muestra países
+        // Si drillProv es un país (ej: ARGENTINA), drilling muestra ciudades
+        if(isExt){
+          // drillProv en este caso es un continente
+          distHeader.innerHTML = `países en <b id="brProvName">${drillNode.nombre}</b> <span class="hint">click: agregar y ver sus ciudades</span>`;
+        } else {
+          distHeader.innerHTML = `distritos de <b id="brProvName">${drillNode.nombre}</b> <span class="hint">click: agregar al lienzo</span>`;
+        }
+      }
+      const dists = drillNode.children || [];
       const box = document.getElementById('brDists');
-      box.innerHTML = dists.length ? dists.map(chipHTML).join('') : '<div class="br-placeholder">sin distritos</div>';
+      box.innerHTML = dists.length ? dists.map(chipHTML).join('') : '<div class="br-placeholder">sin sub-niveles</div>';
     } else { distSec.style.display = 'none'; }
 
     document.querySelectorAll('.browser .chip').forEach(el => el.onclick = () => {
@@ -2497,11 +2530,19 @@
       } else {
         state.places.push(key);
       }
-      if(n.nivel === 'departamento'){
-        state.drillDep = (state.drillDep===key && already) ? null : key;
-        if(state.drillDep !== key) state.drillProv = null;
-      } else if(n.nivel === 'provincia'){
-        state.drillProv = (state.drillProv===key && already) ? null : key;
+      // drilling: cualquier nodo con hijos es drillable
+      const hasChildren = (n.children||[]).length > 0;
+      if(hasChildren){
+        // determinar si va al slot "drillDep" o "drillProv"
+        // - si el nodo es hijo directo del root → drillDep
+        // - si el nodo es hijo de algún drillDep → drillProv
+        const isRootChild = DB.nodes[ROOT].children.includes(key);
+        if(isRootChild){
+          state.drillDep = (state.drillDep===key && already) ? null : key;
+          if(state.drillDep !== key) state.drillProv = null;
+        } else {
+          state.drillProv = (state.drillProv===key && already) ? null : key;
+        }
       }
       persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
     });

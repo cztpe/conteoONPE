@@ -58,9 +58,6 @@
   .movements{border:1px solid var(--line);background:#fff;margin-bottom:14px;border-left:3px solid var(--accent)}
   .movements h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .movements h2 .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
-  .movements ul{list-style:none;margin:0;padding:0}
-  .movements li{padding:7px 14px;border-bottom:1px solid var(--line);font-size:12px;display:flex;gap:10px;align-items:flex-start;line-height:1.45}
-  .movements li:last-child{border-bottom:0}
   .movements .mv-icon{display:inline-block;width:14px;flex-shrink:0;font-family:'Fira Code',monospace;font-size:14px;font-weight:500;text-align:center}
   .movements .mv-txt{flex:1}
   .movements .mv-txt b{font-weight:500;color:var(--fg)}
@@ -70,6 +67,27 @@
   .mv-margin{color:var(--muted)}
   .mv-avance{color:var(--muted)}
   .mv-empty{padding:12px 14px;color:var(--muted);font-style:italic;font-size:11px}
+  .mv-summary{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+  .mv-summary .mv-stat b{color:var(--fg);font-weight:500}
+  .mv-pct-table{padding:8px 14px;border-bottom:1px solid var(--line)}
+  .mv-pct-table table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+  .mv-pct-table th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
+  .mv-pct-table th.num{text-align:right}
+  .mv-pct-table td{padding:3px 6px;border-bottom:1px solid var(--line)}
+  .mv-pct-table td.num{text-align:right}
+  .mv-pct-table td.up{color:var(--accent);font-weight:500}
+  .mv-pct-table td.down{color:var(--down);font-weight:500}
+  .mv-pct-table td.flat{color:var(--muted)}
+  .mv-origin{padding:8px 14px;border-bottom:1px solid var(--line)}
+  .mv-origin-title{display:block;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+  .mv-origin table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+  .mv-origin th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
+  .mv-origin th.num{text-align:right}
+  .mv-origin td{padding:3px 6px;border-bottom:1px solid var(--line)}
+  .mv-origin td.num{text-align:right}
+  .mv-events{list-style:none;margin:0;padding:0}
+  .mv-events li{padding:7px 14px;border-bottom:1px solid var(--line);font-size:12px;display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+  .mv-events li:last-child{border-bottom:0}
 
   /* informe */
   .informe{border:1px solid var(--line);background:#fff;margin-bottom:14px}
@@ -328,7 +346,7 @@
 
     <div class="movements" id="movements" style="display:none">
       <h2>movimientos <span class="meta" id="movMeta">—</span></h2>
-      <ul id="movList"></ul>
+      <div id="movList"></div>
     </div>
 
     <div class="informe">
@@ -1356,16 +1374,98 @@
     const result = detectMovements();
     if(!result){ panel.style.display='none'; return; }
     panel.style.display = '';
-    const s0 = DB.snapshots[result.i0], s1 = DB.snapshots[result.i1];
-    meta.textContent = `s${result.i0} → s${result.i1} · ${s0.label} → ${s1.label}`;
-    if(result.events.length === 0){
-      list.innerHTML = '<div class="mv-empty">sin cambios notables entre estos snapshots</div>';
-      return;
+    const {i0, i1} = result;
+    const s0 = DB.snapshots[i0], s1 = DB.snapshots[i1];
+    meta.textContent = `s${i0} → s${i1} · ${s0.label} → ${s1.label}`;
+
+    let html = '';
+
+    // === RESUMEN: avance, votos nuevos, cambio de % por candidatx ===
+    const av0 = DB.data[ROOT]?.[i0]?.av || 0;
+    const av1 = DB.data[ROOT]?.[i1]?.av || 0;
+    const totV0 = totalValidVotesAt(ROOT, i0);
+    const totV1 = totalValidVotesAt(ROOT, i1);
+    const newVotes = totV1 - totV0;
+
+    html += `<div class="mv-summary">`;
+    html += `<span class="mv-stat">avance <b>${av0.toFixed(3)}% → ${av1.toFixed(3)}%</b> (+${(av1-av0).toFixed(3)}pp)</span>`;
+    html += `<span class="mv-stat">votos válidos nuevos <b>+${fmtS(newVotes)}</b></span>`;
+    html += `</div>`;
+
+    // tabla de cambio de % por candidatx del cast
+    html += `<div class="mv-pct-table"><table>`;
+    html += `<tr><th>candidatx</th><th class="num">s${i0}</th><th class="num">s${i1}</th><th class="num">Δ</th><th class="num">votos nuevos</th></tr>`;
+    const castRows = state.cast.map(code => {
+      const c = candByCode(code);
+      if(!c || isBN(c.agr)) return null;
+      const v0 = votesAt(ROOT, code, i0) || 0;
+      const v1 = votesAt(ROOT, code, i1) || 0;
+      const pc0 = totV0 > 0 ? v0/totV0*100 : 0;
+      const pc1 = totV1 > 0 ? v1/totV1*100 : 0;
+      const dPc = pc1 - pc0;
+      const dV = v1 - v0;
+      return {code, pc0, pc1, dPc, dV, color: colorForCastCode(code)};
+    }).filter(Boolean).sort((a,b) => b.dV - a.dV);
+
+    for(const r of castRows){
+      const cls = r.dPc > 0.001 ? 'up' : r.dPc < -0.001 ? 'down' : 'flat';
+      const sign = r.dPc > 0 ? '+' : '';
+      const signV = r.dV > 0 ? '+' : '';
+      html += `<tr>
+        <td><span style="display:inline-block;width:6px;height:6px;background:${r.color};margin-right:5px;vertical-align:middle"></span>${displayName(r.code).split(' ').slice(-2).join(' ')}</td>
+        <td class="num">${r.pc0.toFixed(3)}%</td>
+        <td class="num">${r.pc1.toFixed(3)}%</td>
+        <td class="num ${cls}">${sign}${r.dPc.toFixed(3)}pp</td>
+        <td class="num">${signV}${fmtS(r.dV)}</td>
+      </tr>`;
     }
-    const icons = {flip:'↔', up:'↑', down:'↓', margin:'⇄', avance:'→'};
-    list.innerHTML = result.events.map(e =>
-      `<li><span class="mv-icon mv-${e.kind}">${icons[e.kind]}</span><span class="mv-txt">${e.text}</span></li>`
-    ).join('');
+    html += `</table></div>`;
+
+    // === DE DÓNDE VINIERON LOS VOTOS: top deptos por nuevas actas/votos ===
+    const deps = DB.nodes[ROOT].children;
+    const depChanges = [];
+    for(const k of deps){
+      const n = DB.nodes[k];
+      const d0 = DB.data[k]?.[i0];
+      const d1 = DB.data[k]?.[i1];
+      if(!d0 || !d1) continue;
+      const avD0 = d0.av || 0;
+      const avD1 = d1.av || 0;
+      const dAv = avD1 - avD0;
+      // votos válidos nuevos en este depto
+      let vt0=0, vt1=0;
+      for(const c in (d0.votes||{})){ const cc=candByCode(c); if(cc && !isBN(cc.agr)) vt0 += d0.votes[c]; }
+      for(const c in (d1.votes||{})){ const cc=candByCode(c); if(cc && !isBN(cc.agr)) vt1 += d1.votes[c]; }
+      const dV = vt1 - vt0;
+      if(dV <= 0 && dAv <= 0) continue;
+      depChanges.push({key:k, nombre:n.nombre, dAv, dV, avD1});
+    }
+    depChanges.sort((a,b) => b.dV - a.dV);
+    const topDeps = depChanges.slice(0, 8);
+
+    if(topDeps.length > 0){
+      html += `<div class="mv-origin"><span class="mv-origin-title">origen de votos nuevos</span><table>`;
+      html += `<tr><th>territorio</th><th class="num">votos nuevos</th><th class="num">Δ avance</th><th class="num">avance actual</th></tr>`;
+      for(const d of topDeps){
+        html += `<tr>
+          <td>${d.nombre}</td>
+          <td class="num">+${fmtS(d.dV)}</td>
+          <td class="num">+${d.dAv.toFixed(3)}pp</td>
+          <td class="num" style="color:var(--muted)">${d.avD1.toFixed(3)}%</td>
+        </tr>`;
+      }
+      html += `</table></div>`;
+    }
+
+    // === EVENTOS NOTABLES (lo existente) ===
+    if(result.events.length > 0){
+      const icons = {flip:'↔', up:'↑', down:'↓', margin:'⇄', avance:'→'};
+      html += `<ul class="mv-events">` + result.events.map(e =>
+        `<li><span class="mv-icon mv-${e.kind}">${icons[e.kind]}</span><span class="mv-txt">${e.text}</span></li>`
+      ).join('') + `</ul>`;
+    }
+
+    list.innerHTML = html;
   }
 
   // ---------- informe ----------
@@ -1827,10 +1927,17 @@
     else {
       // crece si el líder se aleja, baja si se acerca el 2°
       const leaderGaining = (marginCurr>=0 && marginChange>0) || (marginCurr<0 && marginChange<0);
-      trendStr = leaderGaining
-        ? `${displayName(leaderCode).split(' ')[0]} amplía ventaja (${fmtDlt(Math.abs(marginChange))})`
-        : `se acorta la ventaja de ${displayName(leaderCode).split(' ')[0]} (${fmtDlt(-Math.abs(marginChange))})`;
-      trendColor = leaderGaining ? 'var(--accent)' : 'var(--down)';
+      // verificar si hubo cambio de líder (flip)
+      const flipped = (marginFirst >= 0 && marginCurr < 0) || (marginFirst < 0 && marginCurr >= 0);
+      if(flipped){
+        trendStr = `flip: ${displayName(leaderCode).split(' ')[0]} tomó la delantera (giro de ${fmtDlt(Math.abs(marginChange))})`;
+        trendColor = 'var(--accent)';
+      } else {
+        trendStr = leaderGaining
+          ? `${displayName(leaderCode).split(' ')[0]} amplía ventaja (${fmtDlt(Math.abs(marginChange))} de giro)`
+          : `se acorta la ventaja de ${displayName(leaderCode).split(' ')[0]} (${fmtDlt(Math.abs(marginChange))} de giro)`;
+        trendColor = leaderGaining ? 'var(--accent)' : 'var(--down)';
+      }
     }
 
     return `<div class="card" data-duel-idx="${idx}">

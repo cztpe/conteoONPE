@@ -170,20 +170,9 @@
   .card-actions button{font-family:inherit;font-size:10px;padding:3px 7px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
   .card-actions button:hover{border-color:var(--down);color:var(--down)}
   .card-actions button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .card-actions button[data-act="zoom-mode"]:hover{border-color:var(--accent);color:var(--accent)}
-  .card-actions button[data-act="zoom-mode"].act:hover{background:var(--accent);color:#fff}
-  .card-actions button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
   .card-actions button.act:hover{background:#4a6a2a;border-color:#4a6a2a;color:#fff}
-  .chart-wrap{padding:8px 4px 4px;position:relative}
-  .chart-wrap svg{width:100%;height:auto;display:block}
-  /* zoom por 2 clicks: marca de primer click */
-  .zoom-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;margin-left:6px;background:rgba(90,122,58,0.05)}
-  .zoom-badge .rm{cursor:pointer;font-weight:600;padding:0 2px}
-  .zoom-badge .rm:hover{color:var(--down)}
-  .zoom-hint{position:absolute;bottom:6px;right:10px;font-size:9px;color:var(--accent);font-style:italic;pointer-events:none;background:rgba(255,255,255,0.9);padding:2px 5px;display:none;z-index:3}
-  .card.zoom-mode .zoom-hint{display:block}
-  .card.zoom-mode .chart-wrap{outline:2px dashed var(--accent);outline-offset:-2px}
-  .card.zoom-mode .hit{cursor:pointer !important}
+  .chart-wrap{padding:8px 4px 4px;position:relative;overflow-x:auto;overflow-y:hidden}
+  .chart-wrap svg{height:auto;display:block;min-width:100%}
   .card-foot{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px}
   .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
   .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -557,8 +546,7 @@
     csSort: { col: 'default', dir: 'desc' },  // ordenamiento tabla castillo-sanchez
     mapMode: 'winner',
     mapCand: null,
-    density: 'wide',  // wide | normal | compact — cuantas tarjetas por fila,
-    zooms: {},        // ubigeo → [startIdx, endIdx] (índices originales de DB.snapshots) o ausente
+    density: 'wide',  // wide | normal | compact — cuantas tarjetas por fila
     // playback (no persistente, se resetea cada carga)
     pbPlaying: false,
     pbIdx: 0,          // índice del snapshot actual en modo reproducción
@@ -581,7 +569,6 @@
     if(saved.mapMode) state.mapMode = saved.mapMode;
     if(saved.mapCand) state.mapCand = saved.mapCand;
     if(saved.density) state.density = saved.density;
-    if(saved.zooms && typeof saved.zooms==='object') state.zooms = saved.zooms;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -595,8 +582,7 @@
       csSort: state.csSort,
       mapMode: state.mapMode,
       mapCand: state.mapCand,
-      density: state.density,
-      zooms: state.zooms
+      density: state.density
     })); }catch(e){}
   }
 
@@ -890,13 +876,7 @@
     const padL=52, padR=90, padT=18, padB=36;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
-    let aIdx = activeIndices();
-    // aplicar zoom si existe para este key: recorta aIdx al sub-rango
-    const zoom = state.zooms?.[key];
-    if(zoom && Array.isArray(zoom) && zoom.length===2){
-      const [zs, ze] = zoom;
-      aIdx = aIdx.filter(i => i >= zs && i <= ze);
-    }
+    const aIdx = activeIndices();
     const aSnaps = aIdx.map(i => DB.snapshots[i]);
     const n = aSnaps.length;
 
@@ -1039,12 +1019,7 @@
   }
 
   function cardFoot(key){
-    let aIdx = activeIndices();
-    // aplicar zoom si existe
-    const zoom = state.zooms?.[key];
-    if(zoom && Array.isArray(zoom) && zoom.length===2){
-      aIdx = aIdx.filter(i => i >= zoom[0] && i <= zoom[1]);
-    }
+    const aIdx = activeIndices();
     if(aIdx.length===0) return '<div class="card-foot" style="color:var(--muted);grid-template-columns:1fr;text-align:center;font-style:italic">sin snapshots activos</div>';
     const i = aIdx[aIdx.length-1];
     const prev = aIdx.length>1 ? aIdx[aIdx.length-2] : null;
@@ -1115,27 +1090,21 @@
       const showPadron = key !== ROOT && pW != null;
       const padronLine = showPadron ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(3)}%</b> nac.</span>` : '';
 
-      // badge de zoom si está activo
-      const zoom = state.zooms?.[key];
-      const zoomBadge = (zoom && Array.isArray(zoom) && zoom.length===2)
-        ? `<span class="zoom-badge" title="zoom temporal activo · click × para restaurar">zoom s${zoom[0]}–s${zoom[1]} <span class="rm" data-act="rm-zoom">×</span></span>`
-        : '';
-
       return `<div class="card" data-key="${key}">
         <div class="card-head">
           <div class="card-title">
-            <div class="nm">${title}${zoomBadge}</div>
+            <div class="nm">${title}</div>
             <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}${padronLine}</div>
             ${breakdown}
           </div>
           <div class="card-actions">
-            <button data-act="zoom-mode" title="zoom: click en 2 puntos del gráfico para ampliar ese rango">⤢ zoom</button>
+            <button data-act="zoom-in" title="acercar gráfico (más grande)">+</button>
+            <button data-act="zoom-out" title="alejar gráfico">−</button>
             ${canRemove?`<button data-act="rm">×</button>`:''}
           </div>
         </div>
         <div class="chart-wrap">
           ${buildChart(key, state.yMode)}
-          <div class="zoom-hint" id="zh-${key}">click en 2 puntos del gráfico para definir el rango</div>
         </div>
         ${cardFoot(key)}
       </div>`;
@@ -1148,66 +1117,22 @@
       persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
     });
 
-    // quitar zoom (badge)
-    el.querySelectorAll('[data-act="rm-zoom"]').forEach(b => b.onclick = (e) => {
-      e.stopPropagation();
-      const card = e.target.closest('.card');
-      const key = card.dataset.key;
-      delete state.zooms[key];
-      persist();
-      renderGrid();
+    // zoom visual: + agranda el SVG, − lo reduce. chart-wrap tiene overflow-x auto.
+    el.querySelectorAll('[data-act="zoom-in"]').forEach(b => b.onclick = () => {
+      const card = b.closest('.card');
+      const svg = card.querySelector('.chart-wrap svg');
+      if(!svg) return;
+      const cur = parseInt(svg.style.width || '100', 10) || 100;
+      const next = Math.min(cur + 100, 500); // max 500%
+      svg.style.width = next + '%';
     });
-
-    // toggle modo zoom (activa zoom por 2 clicks en la card)
-    const _zoomFirst = {};  // key → primer snap index seleccionado
-    el.querySelectorAll('[data-act="zoom-mode"]').forEach(b => b.onclick = (e) => {
-      e.stopPropagation();
-      const card = e.target.closest('.card');
-      const key = card.dataset.key;
-      const entering = !card.classList.contains('zoom-mode');
-      card.classList.toggle('zoom-mode');
-      b.classList.toggle('act');
-      if(entering){
-        delete _zoomFirst[key];
-        const hint = document.getElementById('zh-'+key);
-        if(hint) hint.textContent = 'click en el primer punto del rango';
-      }
-    });
-
-    // click en hits: en modo zoom, captura los 2 clicks
-    el.querySelectorAll('.hit').forEach(hit => {
-      hit.addEventListener('click', (e) => {
-        const card = e.target.closest('.card');
-        if(!card || !card.classList.contains('zoom-mode')) return;
-        e.stopPropagation();
-        const key = card.dataset.key;
-        const sn = parseInt(hit.dataset.snap, 10);
-        const hint = document.getElementById('zh-'+key);
-        if(_zoomFirst[key] == null){
-          // primer click
-          _zoomFirst[key] = sn;
-          if(hint) hint.textContent = `inicio: s${sn} · ahora click en el punto final`;
-          // marcar visualmente el punto seleccionado
-          hit.setAttribute('fill', 'rgba(90,122,58,0.2)');
-        } else {
-          // segundo click → aplicar zoom
-          const first = _zoomFirst[key];
-          const zs = Math.min(first, sn);
-          const ze = Math.max(first, sn);
-          delete _zoomFirst[key];
-          if(zs === ze){
-            // mismo punto, cancelar
-            if(hint) hint.textContent = 'click en 2 puntos distintos del gráfico';
-            return;
-          }
-          state.zooms[key] = [zs, ze];
-          persist();
-          // salir del modo zoom
-          card.classList.remove('zoom-mode');
-          card.querySelector('[data-act="zoom-mode"]')?.classList.remove('act');
-          renderGrid();
-        }
-      });
+    el.querySelectorAll('[data-act="zoom-out"]').forEach(b => b.onclick = () => {
+      const card = b.closest('.card');
+      const svg = card.querySelector('.chart-wrap svg');
+      if(!svg) return;
+      const cur = parseInt(svg.style.width || '100', 10) || 100;
+      const next = Math.max(cur - 100, 100); // min 100%
+      svg.style.width = next + '%';
     });
 
     // tooltips por columna (hit-zone por snapshot)

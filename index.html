@@ -322,28 +322,6 @@
   <div id="app" style="display:none">
     <div class="snaps" id="snaps"></div>
 
-    <div class="playback" id="playback">
-      <button id="playBtn" title="reproducir evolución del conteo" class="pb-btn">▶</button>
-      <button id="stepBackBtn" title="snapshot anterior" class="pb-btn pb-small">⏮</button>
-      <button id="stepFwdBtn" title="snapshot siguiente" class="pb-btn pb-small">⏭</button>
-      <div class="pb-slider-wrap">
-        <input type="range" id="pbSlider" min="0" max="0" step="1" value="0"/>
-        <div class="pb-label" id="pbLabel">listo</div>
-      </div>
-      <div class="pb-mode">
-        <label title="acumulativo: cada tick añade el siguiente snapshot · solo-uno: muestra el snapshot actual sin los previos">
-          <input type="checkbox" id="pbCumulative" checked>
-          acumulativo
-        </label>
-      </div>
-      <div class="pb-speed">
-        <span class="pb-lbl">velocidad</span>
-        <button data-speed="2000" class="pb-sp">lento</button>
-        <button data-speed="1000" class="pb-sp act">normal</button>
-        <button data-speed="400" class="pb-sp">rápido</button>
-      </div>
-    </div>
-
     <div class="movements" id="movements" style="display:none">
       <h2>movimientos <span class="meta" id="movMeta">—</span></h2>
       <div id="movList"></div>
@@ -388,6 +366,28 @@
     </div>
 
     <div class="grid" id="grid"></div>
+
+    <div class="playback" id="playback">
+      <button id="playBtn" title="reproducir evolución del conteo" class="pb-btn">▶</button>
+      <button id="stepBackBtn" title="snapshot anterior" class="pb-btn pb-small">⏮</button>
+      <button id="stepFwdBtn" title="snapshot siguiente" class="pb-btn pb-small">⏭</button>
+      <div class="pb-slider-wrap">
+        <input type="range" id="pbSlider" min="0" max="0" step="1" value="0"/>
+        <div class="pb-label" id="pbLabel">listo</div>
+      </div>
+      <div class="pb-mode">
+        <label title="acumulativo: cada tick añade el siguiente snapshot · solo-uno: muestra el snapshot actual sin los previos">
+          <input type="checkbox" id="pbCumulative" checked>
+          acumulativo
+        </label>
+      </div>
+      <div class="pb-speed">
+        <span class="pb-lbl">velocidad</span>
+        <button data-speed="2000" class="pb-sp">lento</button>
+        <button data-speed="1000" class="pb-sp act">normal</button>
+        <button data-speed="400" class="pb-sp">rápido</button>
+      </div>
+    </div>
 
     <div class="duelos-section">
       <h2 class="duelos-h">duelos · diferencia entre dos candidatxs a lo largo del tiempo</h2>
@@ -1895,6 +1895,16 @@
     const absMargin = Math.abs(marginCurr);
     const marginStr = mode==='pct' ? absMargin.toFixed(3)+'pp' : fmt(Math.round(absMargin));
 
+    // calcular líder en VOTOS y en PP simultáneamente, sin importar el modo actual
+    const aVotes = votesAt(duelo.place, duelo.a, lastI) || 0;
+    const bVotes = votesAt(duelo.place, duelo.b, lastI) || 0;
+    const totV = totalValidVotesAt(duelo.place, lastI);
+    const aPct = totV > 0 ? aVotes/totV*100 : 0;
+    const bPct = totV > 0 ? bVotes/totV*100 : 0;
+    const leadVotes = Math.abs(aVotes - bVotes);
+    const leadPp = Math.abs(aPct - bPct);
+    const leadStr = `<b>${fmt(leadVotes)} votos</b> · <b>${leadPp.toFixed(3)}pp</b>`;
+
     const fmtV = v => mode==='pct' ? v.toFixed(3)+'%' : fmt(Math.round(v));
     const fmtDlt = d => mode==='pct'
       ? (d>=0?'+':'')+d.toFixed(3)+'pp'
@@ -1924,7 +1934,7 @@
       <div class="card-head">
         <div class="card-title">
           <div class="nm"><span style="color:${ca}">${displayName(duelo.a)}</span> <span style="color:var(--muted)">vs</span> <span style="color:${cb}">${displayName(duelo.b)}</span></div>
-          <div class="meta">en <b>${placeName}</b> · <b style="color:${leaderCol}">${displayName(leaderCode)}</b> lidera por <b>${marginStr}</b></div>
+          <div class="meta">en <b>${placeName}</b> · <b style="color:${leaderCol}">${displayName(leaderCode)}</b> lidera por ${leadStr}</div>
         </div>
         <div class="card-actions"><button data-act="rm-duel">×</button></div>
       </div>

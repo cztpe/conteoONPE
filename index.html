@@ -1374,7 +1374,7 @@
 
     // tabla de cambio de % por candidatx del cast
     html += `<div class="mv-pct-table"><table>`;
-    html += `<tr><th>candidatx</th><th class="num">s${i0}</th><th class="num">s${i1}</th><th class="num">Δ</th><th class="num">votos nuevos</th></tr>`;
+    html += `<tr><th>candidatx</th><th class="num">${av0.toFixed(3)}%</th><th class="num">${av1.toFixed(3)}%</th><th class="num">Δ</th><th class="num">votos nuevos</th></tr>`;
     const castRows = state.cast.map(code => {
       const c = candByCode(code);
       if(!c || isBN(c.agr)) return null;

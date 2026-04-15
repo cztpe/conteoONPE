@@ -601,6 +601,19 @@
     if(n.nivel === 'distrito')     return CASTILLO.distrito?.[key]?.pct ?? null;
     return null;
   }
+
+  // === Baseline de participación 2018 (cargado desde participacion_baseline.json) ===
+  // Usado para proyectar votos esperados pendientes
+  let PARTICIPACION = null;
+  function expectedParticipationPct(key){
+    if(!PARTICIPACION || !DB?.nodes?.[key]) return null;
+    const n = DB.nodes[key];
+    const isExt = n.ambito === 2 || (n.ubigeo||'').startsWith('9');
+    if(isExt) return PARTICIPACION.meta?.extranjero_default_pct ?? 40;
+    // para nodos peruanos: usar el pct del depto (mismos primeros 2 dígitos del ubigeo)
+    const depKey = (key.length >= 2 ? key.substring(0,2) : '') + '0000';
+    return PARTICIPACION.depto_pct?.[depKey] ?? null;
+  }
   const state = {
     places: [ROOT],
     yMode: 'pct',
@@ -2038,30 +2051,59 @@
     const paisesExt = allNodes.filter(([k,n]) => n.nivel === 'provincia' && isExt(k));
     const ciudadesExt = allNodes.filter(([k,n]) => n.nivel === 'distrito' && isExt(k));
 
-    // helper: stats de un nodo
+    // helper: stats de un nodo (incluye proyección de votos pendientes)
     function stats(k){
       const dd = DB.data[k]?.[lastI] || {};
-      return {
-        cont: dd.cont || 0,
-        total: dd.total || 0,
-        pend: (dd.total || 0) - (dd.cont || 0),
-        av: dd.av || 0,
-      };
+      const cont = dd.cont || 0;
+      const total = dd.total || 0;
+      const pend = total - cont;
+      const av = dd.av || 0;
+      // votos válidos + blanco/nulo actuales
+      const votes = dd.votes || {};
+      let vAct = 0;
+      for(const c in votes) vAct += votes[c];
+      // === PROYECCIÓN DE VOTOS PENDIENTES ===
+      // Estrategia A: para nivel depto (peruano) y continente, usar % participación esperada
+      //   votos_esperados_total = padron × (pct_esperado/100)
+      //   votos_pend = votos_esperados_total − vAct
+      // Estrategia B: para sub-niveles sin padrón directo, extrapolar por actas:
+      //   votos_pend = (vAct / cont) × pend
+      let vPend = null;
+      const padron = padronOf(k);
+      const expPct = expectedParticipationPct(k);
+      if(padron != null && expPct != null){
+        const esperados = padron * (expPct/100);
+        vPend = Math.max(0, esperados - vAct);
+      } else if(cont > 0 && pend > 0){
+        // extrapolación lineal por actas (asume misma part. en actas restantes)
+        vPend = Math.round(vAct * pend / cont);
+      } else {
+        vPend = 0;
+      }
+      return {cont, total, pend, av, vAct, vPend: Math.round(vPend)};
     }
 
     // === RESUMEN GLOBAL ===
     function aggregate(nodes){
-      let cont=0, total=0;
+      let cont=0, total=0, vAct=0, vPend=0;
       for(const [k] of nodes){
         const s = stats(k);
         cont += s.cont;
         total += s.total;
+        vAct += s.vAct;
+        vPend += s.vPend;
       }
-      return {cont, total, pend: total-cont, av: total>0 ? cont/total*100 : 0};
+      return {cont, total, pend: total-cont, av: total>0 ? cont/total*100 : 0, vAct, vPend};
     }
     const aPe = aggregate(depsPe);
     const aExt = aggregate(continentes);
-    const aTotal = {cont: aPe.cont+aExt.cont, total: aPe.total+aExt.total, pend: aPe.pend+aExt.pend};
+    const aTotal = {
+      cont: aPe.cont+aExt.cont,
+      total: aPe.total+aExt.total,
+      pend: aPe.pend+aExt.pend,
+      vAct: aPe.vAct+aExt.vAct,
+      vPend: aPe.vPend+aExt.vPend
+    };
     aTotal.av = aTotal.total>0 ? aTotal.cont/aTotal.total*100 : 0;
 
     // contar deptos completos
@@ -2069,21 +2111,37 @@
     const distsCompletos = distsPe.filter(([k]) => stats(k).av >= 100).length;
     const ciudadesCompletas = ciudadesExt.filter(([k]) => stats(k).av >= 100).length;
 
+    // baseline metadata
+    const baselineNote = PARTICIPACION
+      ? `<div class="ps-card ps-baseline-note">
+          <div class="ps-lbl">supuestos de proyección</div>
+          <div class="ps-val" style="font-size:11px;line-height:1.5;font-weight:400">part. perú 2018 (≈79% prom.) · extranjero ${PARTICIPACION.meta?.extranjero_default_pct ?? 40}%</div>
+          <div class="ps-sub">para sub-niveles sin padrón: extrapolación lineal por actas</div>
+        </div>`
+      : `<div class="ps-card ps-baseline-note">
+          <div class="ps-lbl">aviso</div>
+          <div class="ps-val" style="font-size:11px">sin baseline de participación</div>
+          <div class="ps-sub">sube participacion_baseline.json al repo para mejor proyección</div>
+        </div>`;
+
     document.getElementById('pendingSummary').innerHTML = `
       <div class="ps-card">
         <div class="ps-lbl">total · todo el conteo</div>
         <div class="ps-val">${fmt(aTotal.pend)} actas pendientes</div>
         <div class="ps-sub">${fmt(aTotal.cont)} de ${fmt(aTotal.total)} · avance <b>${aTotal.av.toFixed(3)}%</b></div>
+        <div class="ps-sub" style="margin-top:4px;color:var(--accent)">votos esperados pendientes: <b>~${fmt(aTotal.vPend)}</b></div>
       </div>
       <div class="ps-card">
         <div class="ps-lbl">territorio peruano</div>
         <div class="ps-val">${fmt(aPe.pend)} actas pendientes</div>
         <div class="ps-sub">${fmt(aPe.cont)} de ${fmt(aPe.total)} · avance <b>${aPe.av.toFixed(3)}%</b></div>
+        <div class="ps-sub" style="margin-top:4px;color:var(--accent)">votos esperados pendientes: <b>~${fmt(aPe.vPend)}</b></div>
       </div>
       <div class="ps-card">
         <div class="ps-lbl">extranjero</div>
         <div class="ps-val">${fmt(aExt.pend)} actas pendientes</div>
         <div class="ps-sub">${fmt(aExt.cont)} de ${fmt(aExt.total)} · avance <b>${aExt.av.toFixed(3)}%</b></div>
+        <div class="ps-sub" style="margin-top:4px;color:var(--accent)">votos esperados pendientes: <b>~${fmt(aExt.vPend)}</b></div>
       </div>
       <div class="ps-card">
         <div class="ps-lbl">deptos completos</div>
@@ -2095,11 +2153,7 @@
         <div class="ps-val">${distsCompletos} / ${distsPe.length}</div>
         <div class="ps-sub">${(distsCompletos/distsPe.length*100).toFixed(1)}% al 100%</div>
       </div>
-      <div class="ps-card">
-        <div class="ps-lbl">ciudades exterior completas</div>
-        <div class="ps-val">${ciudadesCompletas} / ${ciudadesExt.length}</div>
-        <div class="ps-sub">${ciudadesExt.length-ciudadesCompletas} aún en conteo</div>
-      </div>
+      ${baselineNote}
     `;
 
     // === HELPER: render tabla genérica ===
@@ -2110,12 +2164,14 @@
         ${showParent ? '<th>en</th>' : ''}
         <th class="num">contadas</th>
         <th class="num">total</th>
-        <th class="num">pendientes</th>
+        <th class="num">actas pend.</th>
         <th class="num">avance</th>
+        <th class="num">votos pend. (est.)</th>
       </tr></thead>`;
       const body = '<tbody>' + rows.map(r => {
         const done = r.av >= 100;
         const barW = Math.min(100, r.av);
+        const vPendStr = r.pend>0 && r.vPend>0 ? '~'+fmt(r.vPend) : '—';
         return `<tr class="${done?'done':''}">
           <td>${r.nombre}</td>
           ${showParent ? `<td style="color:var(--muted)">${r.parent||'—'}</td>` : ''}
@@ -2123,6 +2179,7 @@
           <td class="num">${fmt(r.total)}</td>
           <td class="num">${r.pend>0?fmt(r.pend):'—'}</td>
           <td class="num"><span class="av-bar"><span style="width:${barW}%"></span></span>${r.av.toFixed(3)}%</td>
+          <td class="num" style="color:var(--accent)">${vPendStr}</td>
         </tr>`;
       }).join('') + '</tbody>';
       document.getElementById(elId).innerHTML = head + body;
@@ -2145,24 +2202,22 @@
     // === PROVINCIAS PERUANAS más atrasadas (top 15 con pendientes > 0) ===
     const provsRows = provsPe.map(([k,n]) => {
       const s = stats(k);
-      // padre = depto
       const depKey = k.substring(0,2) + '0000';
       const parentName = DB.nodes[depKey]?.nombre || '';
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
     renderTable('pendingProvs', provsRows, {showParent: true, label: 'provincia'});
 
-    // === PAÍSES (extranjero) más atrasados (top 15 con pendientes > 0) ===
+    // === PAÍSES (extranjero) más atrasados ===
     const paisesRows = paisesExt.map(([k,n]) => {
       const s = stats(k);
-      // padre = continente
       const contKey = k.substring(0,2) + '0000';
       const parentName = DB.nodes[contKey]?.nombre || '';
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
     renderTable('pendingPaises', paisesRows, {showParent: true, label: 'país'});
 
-    // === DISTRITOS PERUANOS más atrasados (top 20 con pendientes > 0) ===
+    // === DISTRITOS PERUANOS más atrasados ===
     const distsRows = distsPe.map(([k,n]) => {
       const s = stats(k);
       const provKey = k.substring(0,4) + '00';
@@ -2172,7 +2227,7 @@
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 20);
     renderTable('pendingDists', distsRows, {showParent: true, label: 'distrito'});
 
-    // === CIUDADES EXTRANJERO más atrasadas (top 20 con pendientes > 0) ===
+    // === CIUDADES EXTRANJERO más atrasadas ===
     const ciudadesRows = ciudadesExt.map(([k,n]) => {
       const s = stats(k);
       const paisKey = k.substring(0,4) + '00';
@@ -2926,6 +2981,12 @@
         const r = await fetch('./castillo_2021.json', {cache:'no-store'});
         if(r.ok) CASTILLO = await r.json();
       }catch(e){ /* sin baseline, ok */ }
+
+      // intentar cargar baseline de participación
+      try{
+        const r = await fetch('./participacion_baseline.json', {cache:'no-store'});
+        if(r.ok) PARTICIPACION = await r.json();
+      }catch(e){ /* sin baseline, sigue funcionando */ }
 
       document.getElementById('status').style.display='none';
       document.getElementById('app').style.display='';

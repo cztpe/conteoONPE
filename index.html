@@ -145,8 +145,14 @@
   .sug .item .lvl{display:inline-block;font-size:9px;padding:1px 5px;border:1px solid var(--line-strong);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
   .sug .empty{padding:10px;color:var(--muted);font-size:11px;text-align:center}
 
-  /* stack de gráficos a ancho completo */
-  .grid{display:flex;flex-direction:column;gap:16px}
+  /* grilla de gráficos responsive con modos de densidad */
+  .grid{display:grid;gap:16px;grid-template-columns:1fr}
+  /* modo compacto: 2-4 columnas según ancho */
+  .grid.density-compact{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+  /* modo normal: 1-2 columnas */
+  .grid.density-normal{grid-template-columns:repeat(auto-fit,minmax(560px,1fr))}
+  /* modo amplio: siempre 1 columna a ancho completo */
+  .grid.density-wide{grid-template-columns:1fr}
   .card{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column}
   .card-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);gap:8px}
   .card-title{display:flex;flex-direction:column;min-width:0;gap:1px}
@@ -163,8 +169,25 @@
   .card-actions{display:flex;gap:4px;flex-shrink:0}
   .card-actions button{font-family:inherit;font-size:10px;padding:3px 7px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
   .card-actions button:hover{border-color:var(--down);color:var(--down)}
+  .card-actions button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .card-actions button[data-act="zoom-mode"]:hover{border-color:var(--accent);color:var(--accent)}
+  .card-actions button[data-act="zoom-mode"].act:hover{background:var(--accent);color:#fff}
+  .card-actions button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .card-actions button.act:hover{background:#4a6a2a;border-color:#4a6a2a;color:#fff}
   .chart-wrap{padding:8px 4px 4px;position:relative}
   .chart-wrap svg{width:100%;height:auto;display:block}
+  /* brush de zoom: overlay que captura arrastre horizontal. Oculto por default;
+     solo activo cuando la card tiene la clase .zoom-mode (toggleable por botón). */
+  .chart-brush-overlay{position:absolute;top:8px;left:4px;right:4px;bottom:4px;cursor:crosshair;z-index:5;display:none}
+  .card.zoom-mode .chart-brush-overlay{display:block}
+  .chart-brush-overlay.dragging{cursor:col-resize}
+  .chart-brush-rect{position:absolute;top:0;bottom:0;background:rgba(90,122,58,0.12);border-left:1px dashed var(--accent);border-right:1px dashed var(--accent);pointer-events:none;display:none}
+  .chart-brush-rect.active{display:block}
+  .zoom-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;margin-left:6px;background:rgba(90,122,58,0.05)}
+  .zoom-badge .rm{cursor:pointer;font-weight:600;padding:0 2px}
+  .zoom-badge .rm:hover{color:var(--down)}
+  .zoom-hint{position:absolute;bottom:6px;right:10px;font-size:9px;color:var(--accent);font-style:italic;pointer-events:none;background:rgba(255,255,255,0.9);padding:1px 4px;display:none}
+  .card.zoom-mode .zoom-hint{display:block}
   .card-foot{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px}
   .card-foot .cv{display:flex;flex-direction:column;gap:1px;min-width:0}
   .card-foot .cv .nm{color:var(--fg);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -347,6 +370,11 @@
       <div class="mode" id="xModeBox" title="eje horizontal: por orden de snapshot vs por avance de actas (0-100%)">
         <button data-xmode="snap" class="act">x: snapshots</button>
         <button data-xmode="avance">x: avance →100%</button>
+      </div>
+      <div class="mode" id="densityBox" title="cuántos gráficos por fila">
+        <button data-density="wide" class="act">amplio</button>
+        <button data-density="normal">normal</button>
+        <button data-density="compact">compacto</button>
       </div>
       <label id="castilloToggleWrap" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border:1px solid var(--line);border-radius:3px" title="mostrar línea con el % que sacó Castillo en cada territorio en 1ra vuelta 2021">
         <input type="checkbox" id="castilloToggle" style="margin:0"/>
@@ -533,6 +561,8 @@
     csSort: { col: 'default', dir: 'desc' },  // ordenamiento tabla castillo-sanchez
     mapMode: 'winner',
     mapCand: null,
+    density: 'wide',  // wide | normal | compact — cuantas tarjetas por fila,
+    zooms: {},        // ubigeo → [startIdx, endIdx] (índices originales de DB.snapshots) o ausente
     // playback (no persistente, se resetea cada carga)
     pbPlaying: false,
     pbIdx: 0,          // índice del snapshot actual en modo reproducción
@@ -554,6 +584,8 @@
     if(saved.csSort && typeof saved.csSort==='object') state.csSort = saved.csSort;
     if(saved.mapMode) state.mapMode = saved.mapMode;
     if(saved.mapCand) state.mapCand = saved.mapCand;
+    if(saved.density) state.density = saved.density;
+    if(saved.zooms && typeof saved.zooms==='object') state.zooms = saved.zooms;
   }catch(e){}
   function persist(){
     try{ localStorage.setItem(STORE, JSON.stringify({
@@ -566,7 +598,9 @@
       showCastillo: state.showCastillo,
       csSort: state.csSort,
       mapMode: state.mapMode,
-      mapCand: state.mapCand
+      mapCand: state.mapCand,
+      density: state.density,
+      zooms: state.zooms
     })); }catch(e){}
   }
 
@@ -680,7 +714,7 @@
   const last = () => DB.snapshots.length - 1;
   const fmt = n => (n==null||isNaN(n))?'—':Number(n).toLocaleString('es-PE');
   const fmtS = n => { if(n==null||isNaN(n)) return '—'; n=Number(n); if(Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'k'; return String(n); };
-  const pct = n => (n==null||isNaN(n))?'—':Number(n).toFixed(1)+'%';
+  const pct = n => (n==null||isNaN(n))?'—':Number(n).toFixed(3)+'%';
   const isBN = agr => agr==='VOTOS EN BLANCO' || agr==='VOTOS NULOS';
   const candByCode = c => DB.candidatos_master.find(x=>x.code===c);
   const shortName = nm => { if(!nm) return ''; const p=nm.trim().split(/\s+/); return p.length<=2?nm:p[0]+' '+p[p.length-2]; };
@@ -831,7 +865,7 @@
       const color = on ? K_COLORS[idx] : '';
       const pct = (() => {
         const t = totalValidVotesAt(ROOT, last());
-        return t>0 ? (v/t*100).toFixed(1)+'%' : '—';
+        return t>0 ? (v/t*100).toFixed(3)+'%' : '—';
       })();
       return `<span class="cp-chip ${on?'on':''} ${disabled?'disabled':''}" data-code="${code}" style="--cpc:${color}" title="${cand.agr.toLowerCase()} · ${pct} nacional"><span class="dot"></span>${displayName(code)}</span>`;
     }).join('');
@@ -860,7 +894,13 @@
     const padL=52, padR=90, padT=18, padB=36;
     const innerW = W-padL-padR, innerH = H-padT-padB;
 
-    const aIdx = activeIndices();
+    let aIdx = activeIndices();
+    // aplicar zoom si existe para este key: recorta aIdx al sub-rango
+    const zoom = state.zooms?.[key];
+    if(zoom && Array.isArray(zoom) && zoom.length===2){
+      const [zs, ze] = zoom;
+      aIdx = aIdx.filter(i => i >= zs && i <= ze);
+    }
     const aSnaps = aIdx.map(i => DB.snapshots[i]);
     const n = aSnaps.length;
 
@@ -905,7 +945,7 @@
     for(let i=0;i<=nTicks;i++){ const v=(yMax/nTicks)*i; yTicks.push({v, y:yOf(v)}); }
     const yTicksSVG = yTicks.map(t=>`
       <line x1="${padL}" y1="${t.y}" x2="${W-padR}" y2="${t.y}" stroke="#f0f0f0" stroke-width="1"/>
-      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(0)+'%':fmtS(t.v)}</text>
+      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(3)+'%':fmtS(t.v)}</text>
     `).join('');
 
     let xTicksSVG;
@@ -919,7 +959,7 @@
       const fixed = fixedTicks.map(p => {
         const x = padL + ((p - avMin) / avSpan) * innerW;
         return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#f6f6f6" stroke-width="1"/>
-                <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">${p.toFixed(1)}%</text>`;
+                <text x="${x}" y="${H-padB+12}" text-anchor="middle" font-size="9" fill="#999">${p.toFixed(3)}%</text>`;
       }).join('');
       const snapMarks = aSnaps.map((s,i)=>{
         const x = xOf(i);
@@ -950,13 +990,13 @@
       if(n===1){
         const p = pts[0];
         return `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${color}" opacity="${op}"/>
-                <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(1)+'%':fmtS(s[0])}</text>`;
+                <text x="${p[0]+8}" y="${p[1]+3}" font-size="10" fill="${color}" opacity="${op}">${mode==='pct'?s[0].toFixed(3)+'%':fmtS(s[0])}</text>`;
       }
       const d = pts.map((p,i)=>i?`L${p[0]},${p[1]}`:`M${p[0]},${p[1]}`).join(' ');
       const dots = pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="${dim?1.5:2.5}" fill="${color}" opacity="${op}"/>`).join('');
       const endP = pts[pts.length-1];
       const endVal = s[s.length-1];
-      const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="10" fill="${color}" opacity="${op}" font-weight="500">${mode==='pct'?endVal.toFixed(1)+'%':fmtS(endVal)}</text>`;
+      const endLabel = `<text x="${endP[0]+6}" y="${endP[1]+3}" font-size="10" fill="${color}" opacity="${op}" font-weight="500">${mode==='pct'?endVal.toFixed(3)+'%':fmtS(endVal)}</text>`;
       return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>${dots}${endLabel}`;
     }).join('');
 
@@ -971,7 +1011,7 @@
       const yC = yOf(castilloBaseline);
       castilloSVG = `
         <line x1="${padL}" y1="${yC}" x2="${W-padR}" y2="${yC}" stroke="#a04040" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.55"/>
-        <text x="${W-padR-4}" y="${yC-3}" text-anchor="end" font-size="9" fill="#a04040" opacity="0.85" font-style="italic">castillo 2021 · ${castilloBaseline.toFixed(1)}%</text>
+        <text x="${W-padR-4}" y="${yC-3}" text-anchor="end" font-size="9" fill="#a04040" opacity="0.85" font-style="italic">castillo 2021 · ${castilloBaseline.toFixed(3)}%</text>
       `;
     }
 
@@ -1024,7 +1064,7 @@
       const dim = state.highlighted && state.highlighted!==code ? 'style="opacity:0.35"' : '';
       return `<div class="cv" ${dim}>
         <span class="nm" style="color:${K_COLORS[idx]||'#888'}">${displayName(code).split(' ')[0]}</span>
-        <span class="vn">${state.yMode==='pct'?pc.toFixed(1)+'%':fmtS(v)}</span>
+        <span class="vn">${state.yMode==='pct'?pc.toFixed(3)+'%':fmtS(v)}</span>
         <span class="dlt ${dcl}">${dtx}</span>
       </div>`;
     }).join('')}</div>`;
@@ -1032,6 +1072,8 @@
 
   function renderGrid(){
     const el = document.getElementById('grid');
+    // aplicar clase de densidad
+    el.className = 'grid density-' + (state.density || 'wide');
     if(state.places.length===0){
       el.innerHTML = `<div class="empty-hint">añade un lugar usando el buscador arriba · puedes elegir hasta 12 candidatxs en la leyenda</div>`;
       return;
@@ -1060,9 +1102,9 @@
         }
         const terrAv = terrTotal>0 ? (terrCont/terrTotal*100) : 0;
         breakdown = `<div class="breakdown">
-          <span class="bk"><span class="bk-lbl">territorio</span> <b>${terrAv.toFixed(2)}%</b> <span class="bk-sub">${fmt(terrCont)} / ${fmt(terrTotal)}</span></span>
+          <span class="bk"><span class="bk-lbl">territorio</span> <b>${terrAv.toFixed(3)}%</b> <span class="bk-sub">${fmt(terrCont)} / ${fmt(terrTotal)}</span></span>
           <span class="bk-sep">·</span>
-          ${extD ? `<span class="bk"><span class="bk-lbl">extranjero</span> <b>${extD.av.toFixed(2)}%</b> <span class="bk-sub">${fmt(extD.cont)} / ${fmt(extD.total)}</span></span>` : `<span class="bk-sub">extranjero no disponible</span>`}
+          ${extD ? `<span class="bk"><span class="bk-lbl">extranjero</span> <b>${extD.av.toFixed(3)}%</b> <span class="bk-sub">${fmt(extD.cont)} / ${fmt(extD.total)}</span></span>` : `<span class="bk-sub">extranjero no disponible</span>`}
         </div>`;
       }
 
@@ -1070,20 +1112,31 @@
       const pW = padronWeight(key);
       const pEl = padronOf(key);
       const showPadron = key !== ROOT && pW != null;
-      const padronLine = showPadron ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(1)}%</b> nac.</span>` : '';
+      const padronLine = showPadron ? ` · <span class="pd">padrón ${fmt(pEl)} <b>${pW.toFixed(3)}%</b> nac.</span>` : '';
+
+      // badge de zoom si está activo
+      const zoom = state.zooms?.[key];
+      const zoomBadge = (zoom && Array.isArray(zoom) && zoom.length===2)
+        ? `<span class="zoom-badge" title="zoom temporal activo · click × para restaurar">zoom s${zoom[0]}–s${zoom[1]} <span class="rm" data-act="rm-zoom">×</span></span>`
+        : '';
 
       return `<div class="card" data-key="${key}">
         <div class="card-head">
           <div class="card-title">
-            <div class="nm">${title}</div>
+            <div class="nm">${title}${zoomBadge}</div>
             <div class="meta">${path?path+' · ':''}<b>avance ${pct(d.av)}</b> · ${n.nivel}${padronLine}</div>
             ${breakdown}
           </div>
           <div class="card-actions">
+            <button data-act="zoom-mode" title="activar selección de rango con arrastre del mouse">⤢ zoom</button>
             ${canRemove?`<button data-act="rm">×</button>`:''}
           </div>
         </div>
-        <div class="chart-wrap">${buildChart(key, state.yMode)}</div>
+        <div class="chart-wrap">
+          ${buildChart(key, state.yMode)}
+          <div class="chart-brush-overlay" data-key="${key}"><div class="chart-brush-rect"></div></div>
+          <div class="zoom-hint">arrastra en el gráfico para hacer zoom a un rango</div>
+        </div>
         ${cardFoot(key)}
       </div>`;
     }).join('');
@@ -1093,6 +1146,102 @@
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
       persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
+    });
+
+    // quitar zoom (badge)
+    el.querySelectorAll('[data-act="rm-zoom"]').forEach(b => b.onclick = (e) => {
+      e.stopPropagation();
+      const card = e.target.closest('.card');
+      const key = card.dataset.key;
+      delete state.zooms[key];
+      persist();
+      renderGrid();
+    });
+
+    // toggle modo zoom (activa overlay de brush en la card)
+    el.querySelectorAll('[data-act="zoom-mode"]').forEach(b => b.onclick = (e) => {
+      e.stopPropagation();
+      const card = e.target.closest('.card');
+      card.classList.toggle('zoom-mode');
+      b.classList.toggle('act');
+    });
+
+    // brush de zoom: arrastre horizontal sobre el overlay para definir rango
+    el.querySelectorAll('.chart-brush-overlay').forEach(ov => {
+      const key = ov.dataset.key;
+      const rect = ov.querySelector('.chart-brush-rect');
+      let dragging = false;
+      let startX = 0;
+      let currentX = 0;
+
+      ov.addEventListener('mousedown', (e) => {
+        // ignorar click derecho y si se hizo click en un hit (para no interferir con tooltip)
+        if(e.button !== 0) return;
+        // solo iniciar drag si arrastra al menos unos pixeles
+        const r = ov.getBoundingClientRect();
+        startX = e.clientX - r.left;
+        currentX = startX;
+        dragging = true;
+        ov.classList.add('dragging');
+        rect.style.left = startX + 'px';
+        rect.style.width = '0px';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if(!dragging) return;
+        const r = ov.getBoundingClientRect();
+        currentX = Math.max(0, Math.min(r.width, e.clientX - r.left));
+        const left = Math.min(startX, currentX);
+        const width = Math.abs(currentX - startX);
+        rect.style.left = left + 'px';
+        rect.style.width = width + 'px';
+        if(width > 3) rect.classList.add('active');
+      });
+
+      document.addEventListener('mouseup', (e) => {
+        if(!dragging) return;
+        dragging = false;
+        ov.classList.remove('dragging');
+        const r = ov.getBoundingClientRect();
+        const dragWidth = Math.abs(currentX - startX);
+        // si el arrastre fue muy corto, tratar como click — no hacer zoom
+        if(dragWidth < 8){
+          rect.classList.remove('active');
+          return;
+        }
+        // calcular rango de snapshots en base a los hits dentro del overlay
+        // cada hit tiene posición relativa al SVG; usamos getBoundingClientRect de los hits
+        // para ver cuáles caen dentro del rango [leftPx, rightPx]
+        const card = ov.closest('.card');
+        const hits = card.querySelectorAll('.hit[data-place="' + key + '"]');
+        const leftPx = Math.min(startX, currentX);
+        const rightPx = Math.max(startX, currentX);
+        const overlayRect = ov.getBoundingClientRect();
+        const leftAbs = overlayRect.left + leftPx;
+        const rightAbs = overlayRect.left + rightPx;
+        const inRange = [];
+        hits.forEach(h => {
+          const hr = h.getBoundingClientRect();
+          const cx = (hr.left + hr.right) / 2;
+          if(cx >= leftAbs && cx <= rightAbs){
+            inRange.push(parseInt(h.dataset.snap, 10));
+          }
+        });
+        rect.classList.remove('active');
+        if(inRange.length < 2){
+          // menos de 2 snapshots en rango, no vale la pena el zoom
+          return;
+        }
+        const zs = Math.min(...inRange);
+        const ze = Math.max(...inRange);
+        state.zooms[key] = [zs, ze];
+        persist();
+        // al completar zoom con éxito, salir del modo zoom para volver al uso normal
+        const cardEl = ov.closest('.card');
+        if(cardEl) cardEl.classList.remove('zoom-mode');
+        renderGrid();
+      });
     });
 
     // tooltips por columna (hit-zone por snapshot)
@@ -1123,7 +1272,7 @@
         }).filter(x=>x!==null).sort((a,b)=> b.primary - a.primary);
 
         const rows = rowData.map(r => {
-          const primaryStr = state.yMode==='pct' ? r.pc.toFixed(2)+'%' : fmt(r.v);
+          const primaryStr = state.yMode==='pct' ? r.pc.toFixed(3)+'%' : fmt(r.v);
           let dlt = '';
           if(r.delta!=null){
             if(r.delta>0) dlt = `<span class="dlt up">+${fmtS(r.delta)}</span>`;
@@ -1286,7 +1435,7 @@
         events.push({
           kind: 'margin',
           score: Math.abs(delta)*8,
-          text: `margen de <b>${displayName(a).split(' ').pop()}</b> sobre <b>${displayName(b).split(' ').pop()}</b> ${dir} <b>${Math.abs(delta).toFixed(2)}pp</b>`
+          text: `margen de <b>${displayName(a).split(' ').pop()}</b> sobre <b>${displayName(b).split(' ').pop()}</b> ${dir} <b>${Math.abs(delta).toFixed(3)}pp</b>`
         });
       }
     }
@@ -1300,7 +1449,7 @@
         events.push({
           kind: 'avance',
           score: delta*0.8,
-          text: `avance en <b>${DB.nodes[depKey].nombre}</b> saltó <b>+${delta.toFixed(1)}pp</b> (${av0.toFixed(1)}% → ${av1.toFixed(1)}%)`
+          text: `avance en <b>${DB.nodes[depKey].nombre}</b> saltó <b>+${delta.toFixed(3)}pp</b> (${av0.toFixed(3)}% → ${av1.toFixed(3)}%)`
         });
       }
     }
@@ -1451,15 +1600,15 @@
     const depsCompletos = depsPeru.filter(d=>d.av>=99.95).length;
     const distCompletos = distNodes.filter(d=>d.av>=99.95).length;
 
-    const fmtDelta = (d, m) => m==='pct' ? (d>=0?'+':'')+d.toFixed(2)+'pp' : (d>=0?'+':'')+fmtS(d);
-    const placeLine = (item, withParent=false) => `<div class="info-line"><span class="info-line-nm">${item.nombre}${withParent&&item.parent?` <span class="info-line-pa">${item.parent}</span>`:''}</span><span class="info-line-v">${item.av.toFixed(1)}%</span></div>`;
+    const fmtDelta = (d, m) => m==='pct' ? (d>=0?'+':'')+d.toFixed(3)+'pp' : (d>=0?'+':'')+fmtS(d);
+    const placeLine = (item, withParent=false) => `<div class="info-line"><span class="info-line-nm">${item.nombre}${withParent&&item.parent?` <span class="info-line-pa">${item.parent}</span>`:''}</span><span class="info-line-v">${item.av.toFixed(3)}%</span></div>`;
 
     const cards = [];
     cards.push({ title: 'líder nacional',
       value: `<span style="color:${leader?colorForCastCode(leader.code):'var(--fg)'}">${leaderName.split(' ').slice(-2).join(' ')}</span>`,
-      sub: leader ? `${leader.pc.toFixed(2)}% · ${fmt(leader.v)} votos` : '' });
+      sub: leader ? `${leader.pc.toFixed(3)}% · ${fmt(leader.v)} votos` : '' });
     cards.push({ title: 'margen sobre 2°',
-      value: runner ? `+${marginPp.toFixed(2)}pp` : '—',
+      value: runner ? `+${marginPp.toFixed(3)}pp` : '—',
       sub: runner ? `+${fmt(marginV)} votos · vs ${displayName(runner.code).split(' ').slice(-1)[0]}` : '' });
     cards.push({ title: 'más crece',
       value: mostUp ? `<span class="up">${displayName(mostUp.code).split(' ').slice(-2).join(' ')}</span>` : '—',
@@ -1469,16 +1618,16 @@
       sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots' });
     cards.push({ title: 'duelo más cerrado',
       value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
-      sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(2)}pp · ${fmt(closest.diff)} votos` : '' });
+      sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(3)}pp · ${fmt(closest.diff)} votos` : '' });
     const pesoLiderPct = padronDepsKnown>0 ? (padronDeLider/padronDepsKnown*100) : 0;
     cards.push({ title: `deptos donde lidera ${leaderName.split(' ')[0]}`,
       value: `${depsLider} / ${depsPeru.length}`,
-      sub: `${pesoLiderPct.toFixed(1)}% del padrón peruano` });
+      sub: `${pesoLiderPct.toFixed(3)}% del padrón peruano` });
     cards.push({ title: 'participación',
-      value: `${(nac.part||0).toFixed(2)}%`,
+      value: `${(nac.part||0).toFixed(3)}%`,
       sub: 'de ciudadanxs habilitadxs' });
     cards.push({ title: 'avance de actas',
-      value: `${(nac.av||0).toFixed(2)}%`,
+      value: `${(nac.av||0).toFixed(3)}%`,
       sub: `${fmt(nac.cont)} / ${fmt(nac.total)}` });
 
     // === estimación de votos por procesar ===
@@ -1577,8 +1726,8 @@
           const pcCast21 = totV2021>0 ? vCastillo2021/totV2021*100 : 0;
           const delta = pcHered - pcCast21;
           cards.push({ title: 'herencia en strongholds de castillo',
-            value: `${pcHered.toFixed(1)}% vs ${pcCast21.toFixed(1)}%`,
-            sub: `${displayName(heredero).split(' ').slice(-1)[0]} ahora vs Castillo 2021 · ${delta>=0?'+':''}${delta.toFixed(1)}pp` });
+            value: `${pcHered.toFixed(3)}% vs ${pcCast21.toFixed(3)}%`,
+            sub: `${displayName(heredero).split(' ').slice(-1)[0]} ahora vs Castillo 2021 · ${delta>=0?'+':''}${delta.toFixed(3)}pp` });
         }
       }
     }
@@ -1587,7 +1736,7 @@
       const continentes = (DB.nodes[extranjero.key]?.children || []).length;
       const paises = (DB.nodes[extranjero.key]?.children || []).reduce((acc,k) => acc + (DB.nodes[k]?.children?.length || 0), 0);
       cards.push({ title: 'extranjero · avance',
-        value: `${extranjero.av.toFixed(2)}%`,
+        value: `${extranjero.av.toFixed(3)}%`,
         sub: `${fmt(extranjero.cont)} / ${fmt(extranjero.total)} actas` });
       cards.push({ title: 'extranjero · cobertura',
         value: `${continentes} continentes`,
@@ -1604,7 +1753,7 @@
         const extPc = extTotV>0 ? extLV/extTotV*100 : 0;
         cards.push({ title: 'extranjero · líder',
           value: `<span style="color:${colorForCastCode(extLeader)}">${displayName(extLeader).split(' ').slice(-2).join(' ')}</span>`,
-          sub: `${extPc.toFixed(2)}% · ${fmt(extLV)} votos` });
+          sub: `${extPc.toFixed(3)}% · ${fmt(extLV)} votos` });
       }
     } else {
       cards.push({ title: 'extranjero',
@@ -1681,7 +1830,7 @@
     for(let i=0;i<=nTicks;i++){ const v = yMin + ((yMax-yMin)/nTicks)*i; yTicks.push({v, y:yOf(v)}); }
     const yTicksSVG = yTicks.map(t=>`
       <line x1="${padL}" y1="${t.y}" x2="${W-padR}" y2="${t.y}" stroke="#f0f0f0" stroke-width="1"/>
-      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(1)+'%':fmtS(t.v)}</text>
+      <text x="${padL-6}" y="${t.y+3}" text-anchor="end" font-size="9" fill="#999">${mode==='pct'?t.v.toFixed(3)+'%':fmtS(t.v)}</text>
     `).join('');
 
     // ticks x
@@ -1712,9 +1861,9 @@
       const pa = ptsA[0], pb = ptsB[0];
       linesSVG = `
         <circle cx="${pa[0]}" cy="${pa[1]}" r="4" fill="${ca}"/>
-        <text x="${pa[0]+8}" y="${pa[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[0].toFixed(2)+'%':fmtS(seriesA[0])}</text>
+        <text x="${pa[0]+8}" y="${pa[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[0].toFixed(3)+'%':fmtS(seriesA[0])}</text>
         <circle cx="${pb[0]}" cy="${pb[1]}" r="4" fill="${cb}"/>
-        <text x="${pb[0]+8}" y="${pb[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[0].toFixed(2)+'%':fmtS(seriesB[0])}</text>`;
+        <text x="${pb[0]+8}" y="${pb[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[0].toFixed(3)+'%':fmtS(seriesB[0])}</text>`;
     } else {
       const drawLine = (pts, color) => {
         const d = pts.map((p,i) => (i?'L':'M')+p[0]+','+p[1]).join(' ');
@@ -1722,8 +1871,8 @@
         return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>${dots}`;
       };
       const endA = ptsA[ptsA.length-1], endB = ptsB[ptsB.length-1];
-      const lblA = `<text x="${endA[0]+6}" y="${endA[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[seriesA.length-1].toFixed(2)+'%':fmtS(seriesA[seriesA.length-1])}</text>`;
-      const lblB = `<text x="${endB[0]+6}" y="${endB[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[seriesB.length-1].toFixed(2)+'%':fmtS(seriesB[seriesB.length-1])}</text>`;
+      const lblA = `<text x="${endA[0]+6}" y="${endA[1]+3}" font-size="11" fill="${ca}" font-weight="500">${mode==='pct'?seriesA[seriesA.length-1].toFixed(3)+'%':fmtS(seriesA[seriesA.length-1])}</text>`;
+      const lblB = `<text x="${endB[0]+6}" y="${endB[1]+3}" font-size="11" fill="${cb}" font-weight="500">${mode==='pct'?seriesB[seriesB.length-1].toFixed(3)+'%':fmtS(seriesB[seriesB.length-1])}</text>`;
       linesSVG = drawLine(ptsA, ca) + drawLine(ptsB, cb) + lblA + lblB;
     }
 
@@ -1773,11 +1922,11 @@
     const leaderCode = marginCurr>=0 ? duelo.a : duelo.b;
     const leaderCol = marginCurr>=0 ? ca : cb;
     const absMargin = Math.abs(marginCurr);
-    const marginStr = mode==='pct' ? absMargin.toFixed(2)+'pp' : fmt(Math.round(absMargin));
+    const marginStr = mode==='pct' ? absMargin.toFixed(3)+'pp' : fmt(Math.round(absMargin));
 
-    const fmtV = v => mode==='pct' ? v.toFixed(2)+'%' : fmt(Math.round(v));
+    const fmtV = v => mode==='pct' ? v.toFixed(3)+'%' : fmt(Math.round(v));
     const fmtDlt = d => mode==='pct'
-      ? (d>=0?'+':'')+d.toFixed(2)+'pp'
+      ? (d>=0?'+':'')+d.toFixed(3)+'pp'
       : (d>=0?'+':'')+fmtS(d);
 
     // descripción del movimiento del margen
@@ -1936,10 +2085,10 @@
 
       // valor a mostrar
       let displayVal = '';
-      if(mode === 'avance') displayVal = `${(dd.av||0).toFixed(0)}%`;
-      else if(mode === 'part') displayVal = `${(dd.part||0).toFixed(0)}%`;
-      else if(mode === 'margin') displayVal = v!=null ? `${v.toFixed(1)}pp` : '—';
-      else if(mode === 'candidato' && v!=null) displayVal = `${v.toFixed(1)}%`;
+      if(mode === 'avance') displayVal = `${(dd.av||0).toFixed(3)}%`;
+      else if(mode === 'part') displayVal = `${(dd.part||0).toFixed(3)}%`;
+      else if(mode === 'margin') displayVal = v!=null ? `${v.toFixed(3)}pp` : '—';
+      else if(mode === 'candidato' && v!=null) displayVal = `${v.toFixed(3)}%`;
       else if(mode === 'winner'){
         // mostrar % del líder
         const vs = dd.votes || {};
@@ -1949,7 +2098,7 @@
           totV += vs[c];
           if(vs[c] > best) best = vs[c];
         }
-        if(totV>0 && best>0) displayVal = `${(best/totV*100).toFixed(0)}%`;
+        if(totV>0 && best>0) displayVal = `${(best/totV*100).toFixed(3)}%`;
       }
 
       // tooltip extendido
@@ -1963,7 +2112,7 @@
       }
       const leaderName = leaderCode ? displayName(leaderCode).split(' ').slice(-1)[0] : '—';
       const leaderPct = totV>0 ? (leaderVotes/totV*100) : 0;
-      const tipText = `${nombre} · avance ${(dd.av||0).toFixed(1)}% · líder: ${leaderName} ${leaderPct.toFixed(1)}%`;
+      const tipText = `${nombre} · avance ${(dd.av||0).toFixed(3)}% · líder: ${leaderName} ${leaderPct.toFixed(3)}%`;
 
       const lightCls = isLight(color) ? ' light' : '';
       const addedCls = added ? ' added' : '';
@@ -2143,10 +2292,10 @@
 
     // Meta
     document.getElementById('csMeta').innerHTML = `
-      <div class="m"><span>castillo 2021 nacional</span><b>${castilloNacPct.toFixed(2)}%</b></div>
-      <div class="m"><span>sánchez 2026 nacional</span><b>${spNacPct.toFixed(2)}%</b></div>
+      <div class="m"><span>castillo 2021 nacional</span><b>${castilloNacPct.toFixed(3)}%</b></div>
+      <div class="m"><span>sánchez 2026 nacional</span><b>${spNacPct.toFixed(3)}%</b></div>
       <div class="m"><span>deptos donde iguala o supera</span><b>${hits} / ${totRows}</b></div>
-      <div class="m"><span>avance conteo</span><b>${(DB.data[ROOT][lastI]?.av||0).toFixed(2)}%</b></div>
+      <div class="m"><span>avance conteo</span><b>${(DB.data[ROOT][lastI]?.av||0).toFixed(3)}%</b></div>
     `;
 
     // Escala común: mayor % observado entre c21 y sp en cualquier depto
@@ -2177,21 +2326,21 @@
 
     const tbody = '<tbody>' + rows.map(r => {
       const hit = r.delta != null && r.delta >= 0;
-      const c21Str = r.c21pct != null ? r.c21pct.toFixed(2)+'%' : '—';
-      const spStr = r.spPct.toFixed(2)+'%';
+      const c21Str = r.c21pct != null ? r.c21pct.toFixed(3)+'%' : '—';
+      const spStr = r.spPct.toFixed(3)+'%';
       let deltaStr, deltaCls;
       if(r.delta == null){
         deltaStr = '—'; deltaCls = 'delta-neutral';
       } else if(r.delta > 0){
-        deltaStr = '+'+r.delta.toFixed(2)+'pp'; deltaCls = 'delta-up';
+        deltaStr = '+'+r.delta.toFixed(3)+'pp'; deltaCls = 'delta-up';
       } else if(r.delta < 0){
-        deltaStr = r.delta.toFixed(2)+'pp'; deltaCls = 'delta-down';
+        deltaStr = r.delta.toFixed(3)+'pp'; deltaCls = 'delta-down';
       } else {
         deltaStr = '0pp'; deltaCls = 'delta-neutral';
       }
       const wC21 = r.c21pct != null ? (r.c21pct/scaleMax*100).toFixed(1) : 0;
       const wSP = (r.spPct/scaleMax*100).toFixed(1);
-      const avStr = r.avance.toFixed(1)+'%';
+      const avStr = r.avance.toFixed(3)+'%';
       return `<tr class="${hit?'hit':''}" data-key="${r.key}">
         <td>${r.nombre}${r.nivel==='extranjero'?' <span style="color:var(--faint);font-size:10px">(exterior)</span>':''}</td>
         <td class="num">${c21Str}</td>
@@ -2258,6 +2407,7 @@
     if(state.cast.length>=2){ selA.value = state.cast[0]; selB.value = state.cast[1]; }
 
     const grid = document.getElementById('duelosGrid');
+    grid.className = 'grid density-' + (state.density || 'wide');
     if(state.duelos.length===0){
       grid.innerHTML = `<div class="empty-hint">aún no has creado duelos · arma uno con los selectores de arriba para ver la evolución del margen</div>`;
     } else {
@@ -2280,11 +2430,11 @@
           const vb = valueAt(place, cb, sn, mode);
           const diff = va - vb;
           const colA = colorForCastCode(ca), colB = colorForCastCode(cb);
-          const diffStr = mode==='pct' ? (diff>=0?'+':'')+diff.toFixed(2)+'pp' : (diff>=0?'+':'')+fmt(Math.round(diff));
+          const diffStr = mode==='pct' ? (diff>=0?'+':'')+diff.toFixed(3)+'pp' : (diff>=0?'+':'')+fmt(Math.round(diff));
           const leader = diff>=0 ? ca : cb;
           tip.innerHTML = `<div class="tt-head"><b>${DB.nodes[place]?.nombre||'PERÚ'}</b> · s${sn} · ${snap.label}</div>
-            <div class="tt-row"><span class="d" style="background:${colA}"></span><span class="nm">${displayName(ca)}</span><span class="v">${mode==='pct'?va.toFixed(2)+'%':fmt(va)}</span></div>
-            <div class="tt-row"><span class="d" style="background:${colB}"></span><span class="nm">${displayName(cb)}</span><span class="v">${mode==='pct'?vb.toFixed(2)+'%':fmt(vb)}</span></div>
+            <div class="tt-row"><span class="d" style="background:${colA}"></span><span class="nm">${displayName(ca)}</span><span class="v">${mode==='pct'?va.toFixed(3)+'%':fmt(va)}</span></div>
+            <div class="tt-row"><span class="d" style="background:${colB}"></span><span class="nm">${displayName(cb)}</span><span class="v">${mode==='pct'?vb.toFixed(3)+'%':fmt(vb)}</span></div>
             <div class="tt-row hl"><span class="d" style="background:${diff>=0?colA:colB}"></span><span class="nm">margen (${displayName(leader).split(' ')[0]})</span><span class="v">${diffStr}</span></div>`;
           tip.classList.add('on');
         });
@@ -2312,9 +2462,9 @@
       const av = DB.data[key]?.[lastI]?.av || 0;
       // color del bar segun avance
       const barCol = av>=90?'var(--accent)':av>=70?'#8aa850':av>=40?'#c5a040':'#c47040';
-      return `<span class="chip ${cls}" data-key="${key}" title="${added?'click para quitar':'click para agregar'} · avance ${av.toFixed(1)}%">
+      return `<span class="chip ${cls}" data-key="${key}" title="${added?'click para quitar':'click para agregar'} · avance ${av.toFixed(3)}%">
         <span class="chip-name">${n.nombre}</span>
-        <span class="chip-av">${av.toFixed(1)}%</span>
+        <span class="chip-av">${av.toFixed(3)}%</span>
         <span class="chip-bar"><span style="width:${Math.min(100,av)}%;background:${barCol}"></span></span>
         ${added?'<span class="x">×</span>':''}
       </span>`;
@@ -2383,7 +2533,7 @@
     const lbl = document.getElementById('pbLabel');
     if(lbl){
       const s = all[idx];
-      lbl.textContent = `s${idx}/${all.length-1} · ${s.label} · avance ${s.avance.toFixed(2)}%`;
+      lbl.textContent = `s${idx}/${all.length-1} · ${s.label} · avance ${s.avance.toFixed(3)}%`;
     }
     // no llamamos persist() durante playback para no contaminar localStorage
     renderSnaps();
@@ -2451,7 +2601,7 @@
     slider.value = n-1;
     state.pbIdx = n-1;
     const lastS = DB.snapshots[n-1];
-    if(lbl) lbl.textContent = `s${n-1}/${n-1} · ${lastS.label} · avance ${lastS.avance.toFixed(2)}%`;
+    if(lbl) lbl.textContent = `s${n-1}/${n-1} · ${lastS.label} · avance ${lastS.avance.toFixed(3)}%`;
 
     playBtn.onclick = () => {
       if(state.pbPlaying){
@@ -2549,6 +2699,17 @@
       });
       document.querySelector(`#xModeBox button[data-xmode="${state.xMode}"]`).classList.add('act');
       document.querySelectorAll('#xModeBox button').forEach(b=>{ if(b.dataset.xmode!==state.xMode) b.classList.remove('act'); });
+
+      // density: cuántas tarjetas por fila
+      document.getElementById('densityBox').querySelectorAll('button').forEach(b => b.onclick = () => {
+        state.density = b.dataset.density;
+        document.getElementById('densityBox').querySelectorAll('button').forEach(x => x.classList.toggle('act', x.dataset.density === state.density));
+        persist();
+        renderGrid();
+        renderDuelos();
+      });
+      document.querySelector(`#densityBox button[data-density="${state.density}"]`)?.classList.add('act');
+      document.querySelectorAll('#densityBox button').forEach(b => { if(b.dataset.density !== state.density) b.classList.remove('act'); });
 
       // Castillo toggle: mostrar solo si hay data
       if(CASTILLO){

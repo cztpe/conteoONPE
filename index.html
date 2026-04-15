@@ -307,6 +307,26 @@
   .map-tip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:5px 8px;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .1s;z-index:20;margin-bottom:4px}
   .map-cell:hover .map-tip{opacity:1}
 
+  /* sección de actas pendientes */
+  .pending-section{margin-top:28px;border:1px solid var(--line);padding:16px 18px;background:#fdfcfa}
+  .pending-section h2{margin:0 0 4px;font-size:14px;font-weight:500;letter-spacing:.02em}
+  .pending-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);margin:14px 0 18px;border:1px solid var(--line)}
+  .pending-summary .ps-card{background:#fff;padding:10px 12px}
+  .pending-summary .ps-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+  .pending-summary .ps-val{font-size:15px;font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.2}
+  .pending-summary .ps-sub{font-size:10px;color:var(--muted);margin-top:3px}
+  .pending-grids{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px}
+  .pending-block h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .pending-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+  .pending-table th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;border-bottom:1px solid var(--line-strong);font-size:9px;text-transform:uppercase;letter-spacing:.04em;background:#fafaf7}
+  .pending-table th.num{text-align:right}
+  .pending-table td{padding:3px 6px;border-bottom:1px solid var(--line)}
+  .pending-table td.num{text-align:right}
+  .pending-table tr.done td{color:var(--muted);font-style:italic}
+  .pending-table tr.done td:first-child::before{content:'✓ ';color:var(--accent);font-style:normal}
+  .pending-table .av-bar{display:inline-block;width:50px;height:6px;background:#f0ede6;position:relative;vertical-align:middle;margin-right:4px}
+  .pending-table .av-bar span{position:absolute;left:0;top:0;height:100%;background:var(--accent)}
+
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
 </style>
@@ -441,6 +461,38 @@
       </div>
       <div class="map-wrap" id="mapWrap"></div>
       <div class="map-legend" id="mapLegend"></div>
+    </div>
+
+    <div class="pending-section" id="pendingSection">
+      <h2>actas pendientes · qué falta procesar</h2>
+      <p class="cs-note">desglose completo del conteo restante. % calculado sobre actas (no electores). orden: lo más atrasado primero.</p>
+      <div class="pending-summary" id="pendingSummary"></div>
+      <div class="pending-grids">
+        <div class="pending-block">
+          <h3>departamentos peruanos</h3>
+          <table class="pending-table" id="pendingDeps"></table>
+        </div>
+        <div class="pending-block">
+          <h3>continentes (extranjero)</h3>
+          <table class="pending-table" id="pendingContinents"></table>
+        </div>
+        <div class="pending-block">
+          <h3>provincias más atrasadas (top 15)</h3>
+          <table class="pending-table" id="pendingProvs"></table>
+        </div>
+        <div class="pending-block">
+          <h3>países (extranjero) más atrasados (top 15)</h3>
+          <table class="pending-table" id="pendingPaises"></table>
+        </div>
+        <div class="pending-block">
+          <h3>distritos más atrasados (top 20)</h3>
+          <table class="pending-table" id="pendingDists"></table>
+        </div>
+        <div class="pending-block">
+          <h3>ciudades del exterior más atrasadas (top 20)</h3>
+          <table class="pending-table" id="pendingCiudades"></table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -819,7 +871,7 @@
         if(activeN<=1){ return; } // no dejar el chart sin nada
         state.snapsInactive.add(ts);
       }
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap(); renderPending();
     });
     document.getElementById('snapsAll').onclick = () => {
       if(state.pbPlaying || state.pbSavedInactive !== null){
@@ -827,7 +879,7 @@
         state.pbSavedInactive = null;
       }
       state.snapsInactive.clear();
-      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap();
+      persist(); renderSnaps(); renderMovements(); renderInforme(); renderGrid(); renderDuelos(); renderCastilloCompare(); renderMap(); renderPending();
     };
   }
   function renderLegend(){
@@ -848,7 +900,7 @@
         const code = ev.target.dataset.rm;
         state.cast = state.cast.filter(x=>x!==code);
         if(state.highlighted===code) state.highlighted = null;
-        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements(); renderCastilloCompare(); renderMap();
+        persist(); renderLegend(); renderCastPicker(); renderGrid(); renderDuelos(); renderInforme(); renderMovements(); renderCastilloCompare(); renderMap(); renderPending();
         return;
       }
       const code = ln.dataset.code;
@@ -1141,7 +1193,7 @@
     el.querySelectorAll('[data-act="rm"]').forEach(b=>b.onclick=(e)=>{
       const card=e.target.closest('.card'); const key=card.dataset.key;
       state.places = state.places.filter(x=>x!==key);
-      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap(); renderPending();
     });
 
     // tooltips por columna (hit-zone por snapshot)
@@ -1241,7 +1293,7 @@
       if(!state.places.includes(key)) state.places.push(key);
       document.getElementById('q').value='';
       box.style.display='none';
-      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap(); renderPending();
     });
   }
 
@@ -1970,6 +2022,167 @@
     </div>`;
   }
 
+  function renderPending(){
+    if(!DB) return;
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+
+    const isExt = (k) => DB.nodes[k]?.ambito === 2 || (DB.nodes[k]?.ubigeo||'').startsWith('9');
+
+    // Recolectar nodos por nivel
+    const allNodes = Object.entries(DB.nodes);
+    const depsPe = allNodes.filter(([k,n]) => n.nivel === 'departamento' && !isExt(k));
+    const provsPe = allNodes.filter(([k,n]) => n.nivel === 'provincia' && !isExt(k));
+    const distsPe = allNodes.filter(([k,n]) => n.nivel === 'distrito' && !isExt(k));
+    const continentes = allNodes.filter(([k,n]) => n.nivel === 'departamento' && isExt(k));
+    const paisesExt = allNodes.filter(([k,n]) => n.nivel === 'provincia' && isExt(k));
+    const ciudadesExt = allNodes.filter(([k,n]) => n.nivel === 'distrito' && isExt(k));
+
+    // helper: stats de un nodo
+    function stats(k){
+      const dd = DB.data[k]?.[lastI] || {};
+      return {
+        cont: dd.cont || 0,
+        total: dd.total || 0,
+        pend: (dd.total || 0) - (dd.cont || 0),
+        av: dd.av || 0,
+      };
+    }
+
+    // === RESUMEN GLOBAL ===
+    function aggregate(nodes){
+      let cont=0, total=0;
+      for(const [k] of nodes){
+        const s = stats(k);
+        cont += s.cont;
+        total += s.total;
+      }
+      return {cont, total, pend: total-cont, av: total>0 ? cont/total*100 : 0};
+    }
+    const aPe = aggregate(depsPe);
+    const aExt = aggregate(continentes);
+    const aTotal = {cont: aPe.cont+aExt.cont, total: aPe.total+aExt.total, pend: aPe.pend+aExt.pend};
+    aTotal.av = aTotal.total>0 ? aTotal.cont/aTotal.total*100 : 0;
+
+    // contar deptos completos
+    const depsCompletos = depsPe.filter(([k]) => stats(k).av >= 100).length;
+    const distsCompletos = distsPe.filter(([k]) => stats(k).av >= 100).length;
+    const ciudadesCompletas = ciudadesExt.filter(([k]) => stats(k).av >= 100).length;
+
+    document.getElementById('pendingSummary').innerHTML = `
+      <div class="ps-card">
+        <div class="ps-lbl">total · todo el conteo</div>
+        <div class="ps-val">${fmt(aTotal.pend)} actas pendientes</div>
+        <div class="ps-sub">${fmt(aTotal.cont)} de ${fmt(aTotal.total)} · avance <b>${aTotal.av.toFixed(3)}%</b></div>
+      </div>
+      <div class="ps-card">
+        <div class="ps-lbl">territorio peruano</div>
+        <div class="ps-val">${fmt(aPe.pend)} actas pendientes</div>
+        <div class="ps-sub">${fmt(aPe.cont)} de ${fmt(aPe.total)} · avance <b>${aPe.av.toFixed(3)}%</b></div>
+      </div>
+      <div class="ps-card">
+        <div class="ps-lbl">extranjero</div>
+        <div class="ps-val">${fmt(aExt.pend)} actas pendientes</div>
+        <div class="ps-sub">${fmt(aExt.cont)} de ${fmt(aExt.total)} · avance <b>${aExt.av.toFixed(3)}%</b></div>
+      </div>
+      <div class="ps-card">
+        <div class="ps-lbl">deptos completos</div>
+        <div class="ps-val">${depsCompletos} / ${depsPe.length}</div>
+        <div class="ps-sub">${depsPe.length-depsCompletos} aún en conteo</div>
+      </div>
+      <div class="ps-card">
+        <div class="ps-lbl">distritos completos</div>
+        <div class="ps-val">${distsCompletos} / ${distsPe.length}</div>
+        <div class="ps-sub">${(distsCompletos/distsPe.length*100).toFixed(1)}% al 100%</div>
+      </div>
+      <div class="ps-card">
+        <div class="ps-lbl">ciudades exterior completas</div>
+        <div class="ps-val">${ciudadesCompletas} / ${ciudadesExt.length}</div>
+        <div class="ps-sub">${ciudadesExt.length-ciudadesCompletas} aún en conteo</div>
+      </div>
+    `;
+
+    // === HELPER: render tabla genérica ===
+    function renderTable(elId, rows, opts={}){
+      const showParent = opts.showParent || false;
+      const head = `<thead><tr>
+        <th>${opts.label || 'territorio'}</th>
+        ${showParent ? '<th>en</th>' : ''}
+        <th class="num">contadas</th>
+        <th class="num">total</th>
+        <th class="num">pendientes</th>
+        <th class="num">avance</th>
+      </tr></thead>`;
+      const body = '<tbody>' + rows.map(r => {
+        const done = r.av >= 100;
+        const barW = Math.min(100, r.av);
+        return `<tr class="${done?'done':''}">
+          <td>${r.nombre}</td>
+          ${showParent ? `<td style="color:var(--muted)">${r.parent||'—'}</td>` : ''}
+          <td class="num">${fmt(r.cont)}</td>
+          <td class="num">${fmt(r.total)}</td>
+          <td class="num">${r.pend>0?fmt(r.pend):'—'}</td>
+          <td class="num"><span class="av-bar"><span style="width:${barW}%"></span></span>${r.av.toFixed(3)}%</td>
+        </tr>`;
+      }).join('') + '</tbody>';
+      document.getElementById(elId).innerHTML = head + body;
+    }
+
+    // === DEPTOS PERUANOS (todos, ordenados por % pendiente desc) ===
+    const depsRows = depsPe.map(([k,n]) => {
+      const s = stats(k);
+      return {nombre: n.nombre, ...s};
+    }).sort((a,b) => (a.av - b.av));  // menor avance primero
+    renderTable('pendingDeps', depsRows);
+
+    // === CONTINENTES (todos, ordenados igual) ===
+    const contRows = continentes.map(([k,n]) => {
+      const s = stats(k);
+      return {nombre: n.nombre, ...s};
+    }).sort((a,b) => (a.av - b.av));
+    renderTable('pendingContinents', contRows);
+
+    // === PROVINCIAS PERUANAS más atrasadas (top 15 con pendientes > 0) ===
+    const provsRows = provsPe.map(([k,n]) => {
+      const s = stats(k);
+      // padre = depto
+      const depKey = k.substring(0,2) + '0000';
+      const parentName = DB.nodes[depKey]?.nombre || '';
+      return {nombre: n.nombre, parent: parentName, ...s};
+    }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
+    renderTable('pendingProvs', provsRows, {showParent: true, label: 'provincia'});
+
+    // === PAÍSES (extranjero) más atrasados (top 15 con pendientes > 0) ===
+    const paisesRows = paisesExt.map(([k,n]) => {
+      const s = stats(k);
+      // padre = continente
+      const contKey = k.substring(0,2) + '0000';
+      const parentName = DB.nodes[contKey]?.nombre || '';
+      return {nombre: n.nombre, parent: parentName, ...s};
+    }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
+    renderTable('pendingPaises', paisesRows, {showParent: true, label: 'país'});
+
+    // === DISTRITOS PERUANOS más atrasados (top 20 con pendientes > 0) ===
+    const distsRows = distsPe.map(([k,n]) => {
+      const s = stats(k);
+      const provKey = k.substring(0,4) + '00';
+      const depKey = k.substring(0,2) + '0000';
+      const parentName = `${DB.nodes[provKey]?.nombre||''} (${DB.nodes[depKey]?.nombre||''})`;
+      return {nombre: n.nombre, parent: parentName, ...s};
+    }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 20);
+    renderTable('pendingDists', distsRows, {showParent: true, label: 'distrito'});
+
+    // === CIUDADES EXTRANJERO más atrasadas (top 20 con pendientes > 0) ===
+    const ciudadesRows = ciudadesExt.map(([k,n]) => {
+      const s = stats(k);
+      const paisKey = k.substring(0,4) + '00';
+      const contKey = k.substring(0,2) + '0000';
+      const parentName = `${DB.nodes[paisKey]?.nombre||''} (${DB.nodes[contKey]?.nombre||''})`;
+      return {nombre: n.nombre, parent: parentName, ...s};
+    }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 20);
+    renderTable('pendingCiudades', ciudadesRows, {showParent: true, label: 'ciudad'});
+  }
+
   function renderMap(){
     const sec = document.getElementById('mapSection');
     const wrap = document.getElementById('mapWrap');
@@ -2134,7 +2347,7 @@
           state.places.push(k);
         }
         persist();
-        renderGrid(); renderBrowser(); renderMap();
+        renderGrid(); renderBrowser(); renderMap(); renderPending();
       };
     });
 
@@ -2373,7 +2586,7 @@
           state.csSort = { col, dir: 'desc' };
         }
         persist();
-        renderCastilloCompare(); renderMap();
+        renderCastilloCompare(); renderMap(); renderPending();
       };
     });
 
@@ -2544,7 +2757,7 @@
           state.drillProv = (state.drillProv===key && already) ? null : key;
         }
       }
-      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
+      persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap(); renderPending();
     });
   }
 
@@ -2582,7 +2795,7 @@
     renderGrid();
     renderDuelos();
     renderCastilloCompare();
-    renderMap();
+    renderMap(); renderPending();
   }
   function pbStart(){
     if(!DB || !DB.snapshots.length) return;
@@ -2627,7 +2840,7 @@
     renderGrid();
     renderDuelos();
     renderCastilloCompare();
-    renderMap();
+    renderMap(); renderPending();
   }
   function pbWirePlayback(){
     const slider = document.getElementById('pbSlider');
@@ -2727,7 +2940,7 @@
       document.getElementById('modeBox').querySelectorAll('button').forEach(b=>b.onclick=()=>{
         state.yMode = b.dataset.mode;
         document.getElementById('modeBox').querySelectorAll('button').forEach(x=>x.classList.toggle('act', x.dataset.mode===state.yMode));
-        persist(); renderGrid(); renderDuelos(); renderInforme(); renderCastilloCompare(); renderMap();
+        persist(); renderGrid(); renderDuelos(); renderInforme(); renderCastilloCompare(); renderMap(); renderPending();
       });
       document.querySelector(`#modeBox button[data-mode="${state.yMode}"]`).classList.add('act');
       document.querySelectorAll('#modeBox button').forEach(b=>{ if(b.dataset.mode!==state.yMode) b.classList.remove('act'); });
@@ -2766,7 +2979,7 @@
       }
       document.getElementById('clearAll').onclick = () => {
         if(confirm('¿quitar todos los gráficos? (se mantiene perú)')){
-          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap();
+          state.places = [ROOT]; state.drillDep=null; state.drillProv=null; persist(); renderGrid(); renderBrowser(); renderDuelos(); renderMap(); renderPending();
         }
       };
 
@@ -2790,7 +3003,7 @@
       renderBrowser();
       renderDuelos();
       renderCastilloCompare();
-      renderMap();
+      renderMap(); renderPending();
 
       // wire del selector de modo del mapa
       document.getElementById('mapModeBox').querySelectorAll('button').forEach(b => {
@@ -2798,7 +3011,7 @@
           state.mapMode = b.dataset.mapmode;
           document.getElementById('mapModeBox').querySelectorAll('button').forEach(x => x.classList.toggle('act', x.dataset.mapmode === state.mapMode));
           persist();
-          renderMap();
+          renderMap(); renderPending();
         };
       });
       document.querySelector(`#mapModeBox button[data-mapmode="${state.mapMode}"]`)?.classList.add('act');
@@ -2808,7 +3021,7 @@
       document.getElementById('mapCandSel').onchange = (e) => {
         state.mapCand = e.target.value;
         persist();
-        renderMap();
+        renderMap(); renderPending();
       };
 
       // inicializar controles de playback

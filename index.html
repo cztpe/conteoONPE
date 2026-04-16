@@ -1554,9 +1554,10 @@
     const marginPp = leader && runner ? leader.pc - runner.pc : 0;
 
     let mostUp = null, mostDown = null;
+    const trendStartI = aIdx.length >= 3 ? aIdx[aIdx.length-3] : aIdx[0];
     if(aIdx.length >= 2){
       for(const code of state.cast){
-        const d = valueAt(ROOT, code, lastI, mode) - valueAt(ROOT, code, firstI, mode);
+        const d = valueAt(ROOT, code, lastI, mode) - valueAt(ROOT, code, trendStartI, mode);
         if(mostUp===null || d > mostUp.d) mostUp = {code, d};
         if(mostDown===null || d < mostDown.d) mostDown = {code, d};
       }
@@ -1665,10 +1666,10 @@
       sub: runner ? `+${fmt(marginV)} votos · vs ${displayName(runner.code).split(' ').slice(-1)[0]}` : '' });
     cards.push({ title: 'más crece',
       value: mostUp ? `<span class="up">${displayName(mostUp.code).split(' ').slice(-2).join(' ')}</span>` : '—',
-      sub: mostUp ? `${fmtDelta(mostUp.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots' });
+      sub: mostUp ? `${fmtDelta(mostUp.d, mode)} · entre s${trendStartI} → s${lastI}` : 'necesitas 2+ snapshots' });
     cards.push({ title: 'más cae',
       value: mostDown ? `<span class="down">${displayName(mostDown.code).split(' ').slice(-2).join(' ')}</span>` : '—',
-      sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${firstI} → s${lastI}` : 'necesitas 2+ snapshots' });
+      sub: mostDown ? `${fmtDelta(mostDown.d, mode)} · entre s${trendStartI} → s${lastI}` : 'necesitas 2+ snapshots' });
     cards.push({ title: 'duelo más cerrado',
       value: closest ? `${displayName(closest.a.code).split(' ').slice(-1)[0]} vs ${displayName(closest.b.code).split(' ').slice(-1)[0]}` : '—',
       sub: closest ? `${((closest.a.pc-closest.b.pc)).toFixed(3)}pp · ${fmt(closest.diff)} votos` : '' });

@@ -326,6 +326,10 @@
   .pending-table tr.done td:first-child::before{content:'✓ ';color:var(--accent);font-style:normal}
   .pending-table .av-bar{display:inline-block;width:50px;height:6px;background:#f0ede6;position:relative;vertical-align:middle;margin-right:4px}
   .pending-table .av-bar span{position:absolute;left:0;top:0;height:100%;background:var(--accent)}
+  .pending-table th.sortable{cursor:pointer;user-select:none;transition:background .1s}
+  .pending-table th.sortable:hover{background:#f4f0e6;color:var(--fg)}
+  .pending-table th .sort-i{display:inline-block;margin-left:3px;font-size:9px;color:#c0bcb0;vertical-align:baseline}
+  .pending-table th .sort-i.act{color:var(--accent);font-weight:600}
 
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
@@ -2159,19 +2163,47 @@
       ${baselineNote}
     `;
 
-    // === HELPER: render tabla genérica ===
+    // === HELPER: render tabla genérica con ordenamiento por columna ===
+    // state.pendingSorts[elId] = {col: 'nombre'|'parent'|'cont'|'total'|'pend'|'av'|'vPend', dir: 'asc'|'desc'}
+    if(!state.pendingSorts) state.pendingSorts = {};
     function renderTable(elId, rows, opts={}){
       const showParent = opts.showParent || false;
-      const head = `<thead><tr>
-        <th>${opts.label || 'territorio'}</th>
-        ${showParent ? '<th>en</th>' : ''}
-        <th class="num">contadas</th>
-        <th class="num">total</th>
-        <th class="num">actas pend.</th>
-        <th class="num">avance</th>
-        <th class="num">votos pend. (est.)</th>
-      </tr></thead>`;
-      const body = '<tbody>' + rows.map(r => {
+      const defaultSort = opts.defaultSort || {col: 'av', dir: 'asc'};
+      const sort = state.pendingSorts[elId] || defaultSort;
+
+      // ordenar
+      const sorted = [...rows].sort((a,b) => {
+        let av = a[sort.col], bv = b[sort.col];
+        // strings vs numbers
+        if(typeof av === 'string' || typeof bv === 'string'){
+          av = (av||'').toString(); bv = (bv||'').toString();
+          return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        }
+        av = av || 0; bv = bv || 0;
+        return sort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      // helper para indicador visual de sort
+      const arrow = (col) => {
+        if(sort.col !== col) return '<span class="sort-i">⇅</span>';
+        return sort.dir === 'asc' ? '<span class="sort-i act">↑</span>' : '<span class="sort-i act">↓</span>';
+      };
+
+      const headers = [
+        {col: 'nombre', label: opts.label || 'territorio', cls: ''},
+        ...(showParent ? [{col: 'parent', label: 'en', cls: ''}] : []),
+        {col: 'cont', label: 'contadas', cls: 'num'},
+        {col: 'total', label: 'total', cls: 'num'},
+        {col: 'pend', label: 'actas pend.', cls: 'num'},
+        {col: 'av', label: 'avance', cls: 'num'},
+        {col: 'vPend', label: 'votos pend. (est.)', cls: 'num'},
+      ];
+
+      const head = `<thead><tr>${headers.map(h =>
+        `<th class="${h.cls} sortable" data-col="${h.col}">${h.label} ${arrow(h.col)}</th>`
+      ).join('')}</tr></thead>`;
+
+      const body = '<tbody>' + sorted.map(r => {
         const done = r.av >= 100;
         const barW = Math.min(100, r.av);
         const vPendStr = r.pend>0 && r.vPend>0 ? '~'+fmt(r.vPend) : '—';
@@ -2185,42 +2217,61 @@
           <td class="num" style="color:var(--accent)">${vPendStr}</td>
         </tr>`;
       }).join('') + '</tbody>';
-      document.getElementById(elId).innerHTML = head + body;
+
+      const tbl = document.getElementById(elId);
+      tbl.innerHTML = head + body;
+
+      // wire click handlers en headers
+      tbl.querySelectorAll('th.sortable').forEach(th => {
+        th.onclick = () => {
+          const col = th.dataset.col;
+          const cur = state.pendingSorts[elId] || defaultSort;
+          let newDir;
+          if(cur.col === col){
+            newDir = cur.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            // por defecto: nombres asc, números desc
+            newDir = (col === 'nombre' || col === 'parent') ? 'asc' : 'desc';
+          }
+          state.pendingSorts[elId] = {col, dir: newDir};
+          renderTable(elId, rows, opts);
+        };
+      });
     }
 
-    // === DEPTOS PERUANOS (todos, ordenados por % pendiente desc) ===
+    // === DEPTOS PERUANOS (todos) ===
     const depsRows = depsPe.map(([k,n]) => {
       const s = stats(k);
       return {nombre: n.nombre, ...s};
-    }).sort((a,b) => (a.av - b.av));  // menor avance primero
-    renderTable('pendingDeps', depsRows);
+    });
+    renderTable('pendingDeps', depsRows, {defaultSort: {col: 'av', dir: 'asc'}});
 
-    // === CONTINENTES (todos, ordenados igual) ===
+    // === CONTINENTES (todos) ===
     const contRows = continentes.map(([k,n]) => {
       const s = stats(k);
       return {nombre: n.nombre, ...s};
-    }).sort((a,b) => (a.av - b.av));
-    renderTable('pendingContinents', contRows);
+    });
+    renderTable('pendingContinents', contRows, {defaultSort: {col: 'av', dir: 'asc'}});
 
-    // === PROVINCIAS PERUANAS más atrasadas (top 15 con pendientes > 0) ===
+    // === PROVINCIAS PERUANAS (top 15 más atrasadas con pendientes) ===
     const provsRows = provsPe.map(([k,n]) => {
       const s = stats(k);
       const depKey = k.substring(0,2) + '0000';
       const parentName = DB.nodes[depKey]?.nombre || '';
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
-    renderTable('pendingProvs', provsRows, {showParent: true, label: 'provincia'});
+    renderTable('pendingProvs', provsRows, {showParent: true, label: 'provincia', defaultSort: {col: 'av', dir: 'asc'}});
 
-    // === PAÍSES (extranjero) más atrasados ===
+    // === PAÍSES (top 15 más atrasados) ===
     const paisesRows = paisesExt.map(([k,n]) => {
       const s = stats(k);
       const contKey = k.substring(0,2) + '0000';
       const parentName = DB.nodes[contKey]?.nombre || '';
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 15);
-    renderTable('pendingPaises', paisesRows, {showParent: true, label: 'país'});
+    renderTable('pendingPaises', paisesRows, {showParent: true, label: 'país', defaultSort: {col: 'av', dir: 'asc'}});
 
-    // === DISTRITOS PERUANOS más atrasados ===
+    // === DISTRITOS (top 20) ===
     const distsRows = distsPe.map(([k,n]) => {
       const s = stats(k);
       const provKey = k.substring(0,4) + '00';
@@ -2228,9 +2279,9 @@
       const parentName = `${DB.nodes[provKey]?.nombre||''} (${DB.nodes[depKey]?.nombre||''})`;
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 20);
-    renderTable('pendingDists', distsRows, {showParent: true, label: 'distrito'});
+    renderTable('pendingDists', distsRows, {showParent: true, label: 'distrito', defaultSort: {col: 'av', dir: 'asc'}});
 
-    // === CIUDADES EXTRANJERO más atrasadas ===
+    // === CIUDADES EXTRANJERO (top 20) ===
     const ciudadesRows = ciudadesExt.map(([k,n]) => {
       const s = stats(k);
       const paisKey = k.substring(0,4) + '00';
@@ -2238,7 +2289,7 @@
       const parentName = `${DB.nodes[paisKey]?.nombre||''} (${DB.nodes[contKey]?.nombre||''})`;
       return {nombre: n.nombre, parent: parentName, ...s};
     }).filter(r => r.pend > 0).sort((a,b) => a.av - b.av).slice(0, 20);
-    renderTable('pendingCiudades', ciudadesRows, {showParent: true, label: 'ciudad'});
+    renderTable('pendingCiudades', ciudadesRows, {showParent: true, label: 'ciudad', defaultSort: {col: 'av', dir: 'asc'}});
   }
 
   function renderMap(){

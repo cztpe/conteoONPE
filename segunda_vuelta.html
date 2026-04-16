@@ -130,6 +130,12 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-si
       <p class="sec-note">dado el margen actual y los votos pendientes estimados: qué porcentaje del voto restante necesitaría cada contendiente para alcanzar al de arriba, asumiendo que el rival mantiene su ritmo actual.</p>
       <div class="thresh-grid" id="threshGrid"></div>
     </div></div>
+    <div class="sec"><h2 class="sec-h">actas en jee · el voto "pendiente" está bajo disputa jurisdiccional <span class="meta" id="jeeMeta"></span></h2><div class="sec-body">
+      <p class="sec-note">las actas que faltan para el 100% no están esperando conteo normal: todas están en el sistema del jurado electoral especial (jee). enviadas = ya recibidas, en resolución. pendientes = marcadas con problemas, aún no llegan. el "voto pendiente" puede ingresar al cómputo, ser anulado parcial o totalmente, o perderse según lo que resuelva cada jee regional. el ratio de cada contendiente en los territorios con más actas en disputa indica su exposición a ese resultado.</p>
+      <div id="jeeSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:16px"></div>
+      <p class="sec-note" style="margin-top:0"><b>exposición por territorio:</b> click en headers para ordenar. "votos en juego" estima cuántos votos aportarían las actas en disputa si se procesaran al promedio del depto. "proy. líder" asume que el ratio actual se mantiene.</p>
+      <table class="s-tbl" id="jeeTbl"></table>
+    </div></div>
     <div class="sec"><h2 class="sec-h">extranjero · factor decisivo <span class="meta" id="extMeta"></span></h2><div class="sec-body">
       <p class="sec-note">con más de la mitad de actas del extranjero sin procesar y lópez aliaga dominando con ~29% ahí (vs ~2% de sánchez), el exterior puede definir la carrera.</p>
       <div class="ext-grid" id="extGrid"></div>
@@ -404,6 +410,43 @@ function renderThresholds(){
   document.getElementById('threshGrid').innerHTML=h;
 }
 
+let jeeSort={col:'jeeTot',dir:'desc'};
+function renderJEE(){
+  const li=DB.snapshots.length-1,cont=getContenders();
+  const rd=DB.data[ROOT][li],nacJeeE=rd.jeeE||0,nacJeeP=rd.jeeP||0,nacJeeTot=nacJeeE+nacJeeP;
+  if(nacJeeTot===0){document.getElementById('jeeMeta').textContent='(sin datos jee en los snapshots)';document.getElementById('jeeSummary').innerHTML='<div class="ec" style="color:var(--muted)">los snapshots cargados no incluyen campos jee. regenerar con build_data.py actualizado.</div>';document.getElementById('jeeTbl').innerHTML='';return}
+  document.getElementById('jeeMeta').textContent=fmt(nacJeeTot)+' actas en disputa · '+(nacJeeTot/(rd.total||1)*100).toFixed(3)+'% del total nacional';
+  const deps=DB.nodes[ROOT].children,depJee=deps.map(function(k){const dd=DB.data[k][li]||{};return{k:k,nm:DB.nodes[k].nombre,jeeE:dd.jeeE||0,jeeP:dd.jeeP||0,tot:(dd.jeeE||0)+(dd.jeeP||0),total:dd.total||0}}).filter(function(d){return d.tot>0});
+  const worstDep=depJee.slice().sort(function(a,b){return b.tot-a.tot})[0];
+  const worstPct=depJee.slice().sort(function(a,b){return(b.total>0?b.tot/b.total:0)-(a.total>0?a.tot/a.total:0)})[0];
+  let sh='<div class="ec"><div class="ec-nm">enviadas al jee</div><div class="ec-av">en proceso de resolución</div><div style="font-size:22px;font-family:var(--sans);font-weight:300;margin:4px 0">'+fmt(nacJeeE)+'</div><div class="ec-av">'+(nacJeeE/(rd.total||1)*100).toFixed(3)+'% nacional</div></div>';
+  sh+='<div class="ec"><div class="ec-nm">pendientes al jee</div><div class="ec-av">aún no llegan al jee</div><div style="font-size:22px;font-family:var(--sans);font-weight:300;margin:4px 0">'+fmt(nacJeeP)+'</div><div class="ec-av">'+(nacJeeP/(rd.total||1)*100).toFixed(3)+'% nacional</div></div>';
+  sh+='<div class="ec"><div class="ec-nm">deptos afectados</div><div class="ec-av">con al menos un acta en jee</div><div style="font-size:22px;font-family:var(--sans);font-weight:300;margin:4px 0">'+depJee.length+'</div><div class="ec-av">de '+deps.length+' territorios</div></div>';
+  if(worstDep)sh+='<div class="ec"><div class="ec-nm">más actas en disputa</div><div class="ec-av">'+worstDep.nm.toLowerCase()+'</div><div style="font-size:22px;font-family:var(--sans);font-weight:300;margin:4px 0">'+fmt(worstDep.tot)+'</div><div class="ec-av">'+(worstDep.tot/(worstDep.total||1)*100).toFixed(2)+'% del depto</div></div>';
+  if(worstPct&&worstPct.k!==worstDep.k)sh+='<div class="ec"><div class="ec-nm">mayor % en disputa</div><div class="ec-av">'+worstPct.nm.toLowerCase()+'</div><div style="font-size:22px;font-family:var(--sans);font-weight:300;margin:4px 0">'+(worstPct.tot/(worstPct.total||1)*100).toFixed(2)+'%</div><div class="ec-av">'+fmt(worstPct.tot)+' actas</div></div>';
+  document.getElementById('jeeSummary').innerHTML=sh;
+  const rows=[];
+  for(const d of depJee){
+    const dd=DB.data[d.k][li]||{};
+    let tot=0;for(const c in (dd.votes||{})){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}
+    const cr=cont.map(function(c){return{code:c,v:(dd.votes||{})[c]||0,pct:tot>0?((dd.votes||{})[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
+    const votesPerActa=dd.cont>0?tot/dd.cont:0;
+    const votosEnJuego=Math.round(votesPerActa*d.tot);
+    const leaderGain=cr[0]?Math.round(votosEnJuego*cr[0].pct/100):0;
+    rows.push({nm:d.nm,k:d.k,jeeE:d.jeeE,jeeP:d.jeeP,jeeTot:d.tot,pctDep:d.total>0?d.tot/d.total*100:0,leader:cr[0]?cr[0].code:null,leaderPct:cr[0]?cr[0].pct:0,votosEnJuego:votosEnJuego,leaderGain:leaderGain});
+  }
+  const sc=jeeSort.col,sd=jeeSort.dir==='desc'?-1:1;
+  rows.sort(function(a,b){const av=a[sc]==null?-Infinity:a[sc],bv=b[sc]==null?-Infinity:b[sc];if(typeof av==='string')return av.localeCompare(bv)*sd;return (av-bv)*sd});
+  const arr=function(c){return sc===c?(sd<0?' ↓':' ↑'):''};
+  let h='<thead><tr><th data-c="nm">territorio'+arr('nm')+'</th><th data-c="jeeE" class="r">enviadas jee'+arr('jeeE')+'</th><th data-c="jeeP" class="r">pendientes jee'+arr('jeeP')+'</th><th data-c="jeeTot" class="r">total en disputa'+arr('jeeTot')+'</th><th data-c="pctDep" class="r">% del depto'+arr('pctDep')+'</th><th data-c="leader">líder ahí'+arr('leader')+'</th><th data-c="votosEnJuego" class="r">votos en juego'+arr('votosEnJuego')+'</th><th data-c="leaderGain" class="r">proy. líder si se resuelve'+arr('leaderGain')+'</th></tr></thead><tbody>';
+  for(const r of rows){
+    h+='<tr><td>'+r.nm.toLowerCase()+'</td><td class="r">'+fmt(r.jeeE)+'</td><td class="r">'+fmt(r.jeeP)+'</td><td class="r"><b>'+fmt(r.jeeTot)+'</b></td><td class="r">'+r.pctDep.toFixed(2)+'%</td><td>'+(r.leader?'<span class="dot" style="background:'+ccolor(r.leader)+'"></span>'+dname(r.leader).split(' ').pop()+' <span style="color:var(--muted)">'+r.leaderPct.toFixed(1)+'%</span>':'—')+'</td><td class="r">'+fmtS(r.votosEnJuego)+'</td><td class="r">+'+fmtS(r.leaderGain)+'</td></tr>';
+  }
+  h+='</tbody>';
+  document.getElementById('jeeTbl').innerHTML=h;
+  document.querySelectorAll('#jeeTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(jeeSort.col===c)jeeSort.dir=jeeSort.dir==='desc'?'asc':'desc';else{jeeSort.col=c;jeeSort.dir=(c==='nm'||c==='leader')?'asc':'desc'}renderJEE()}});
+}
+
 function renderExtranjero(){
   const li=DB.snapshots.length-1,cont=getContenders(),en=DB.nodes[EXT];
   if(!en){document.getElementById('extGrid').innerHTML='<div style="color:var(--muted)">sin datos</div>';return}
@@ -487,7 +530,7 @@ function renderFlips(){
 async function boot(){
   const status=document.getElementById('status');
   try{const files=await discover();status.textContent='cargando '+files.length+' snapshot(s)…';const results=await fetchAll(files);DB=merge(results);status.style.display='none';document.getElementById('app').style.display='';
-    renderHero();renderRanking();renderGapChart();gapPbInit();renderMarginal();renderTrajectory();renderThresholds();renderExtranjero();renderTerritory();renderStrengths();renderFlips();
+    renderHero();renderRanking();renderGapChart();gapPbInit();renderMarginal();renderTrajectory();renderThresholds();renderJEE();renderExtranjero();renderTerritory();renderStrengths();renderFlips();
   }catch(err){status.className='status err';status.innerHTML='<b>error:</b> '+err.message}}
 boot();
 })();

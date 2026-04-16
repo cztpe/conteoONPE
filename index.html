@@ -2717,17 +2717,19 @@
   }
 
   function renderDuelos(){
-    // rellenar selects del creador
+    // rellenar selects del creador — usar TODOS los candidatos reales, no solo el cast
     const selA = document.getElementById('duelA');
     const selB = document.getElementById('duelB');
     const selP = document.getElementById('duelPlace');
-    const opts = state.cast.map(code => `<option value="${code}">${displayName(code)}</option>`).join('');
+    const allCands = allCandsRanked();
+    const opts = allCands.map(({code}) => `<option value="${code}">${displayName(code)}</option>`).join('');
     const placeOpts = state.places.map(k => `<option value="${k}">${k===ROOT?'PERÚ':DB.nodes[k].nombre}</option>`).join('');
-    selA.innerHTML = opts || '<option disabled>sin candidatxs en cast</option>';
-    selB.innerHTML = opts || '<option disabled>sin candidatxs en cast</option>';
+    selA.innerHTML = opts || '<option disabled>sin candidatxs</option>';
+    selB.innerHTML = opts || '<option disabled>sin candidatxs</option>';
     selP.innerHTML = placeOpts;
-    // preselects: A=primero del cast, B=segundo
+    // preselects: A=primero del cast (o top 2 nacional), B=segundo
     if(state.cast.length>=2){ selA.value = state.cast[0]; selB.value = state.cast[1]; }
+    else if(allCands.length>=2){ selA.value = allCands[0].code; selB.value = allCands[1].code; }
 
     const grid = document.getElementById('duelosGrid');
     grid.className = 'grid density-' + (state.density || 'wide');

@@ -12,7 +12,6 @@
   --bg:#fff;--fg:#1a1a1a;--muted:#777;--faint:#aaa;
   --line:#ececec;--line-s:#d0d0d0;
   --accent:#5a7a3a;--down:#b45a1f;--danger:#a04040;
-  /* contender colors — fixed per candidate code */
   --c10:#3a6a8a;--c35:#a04040;--c16:#6a3a7a;--c14:#c17a3a;
   --c8:#5a7a3a;--c2:#8a6a2a;
 }
@@ -24,11 +23,8 @@ a:hover{text-decoration:underline}
 .back{font-size:12px;color:var(--muted);display:inline-block;margin-bottom:14px}
 h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .sub{color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.6}
-
 .status{padding:14px 16px;border:1px solid var(--line);background:#fafafa;color:var(--muted);font-size:12px;margin-bottom:16px}
 .status.err{border-color:var(--down);color:var(--down);background:#fbf2ed}
-
-/* hero gap */
 .hero{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:20px}
 .hero-card{background:#fff;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
 .hero-card.main{background:#fafaf7;border-left:3px solid var(--accent)}
@@ -37,15 +33,11 @@ h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .h-sub{font-size:10px;color:var(--muted);line-height:1.4}
 .h-sub b{color:var(--fg);font-weight:500}
 @media(max-width:700px){.hero{grid-template-columns:1fr}}
-
-/* section */
 .sec{border:1px solid var(--line);background:#fff;margin-bottom:18px}
 .sec-h{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .sec-h .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
 .sec-body{padding:14px}
 .sec-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
-
-/* ranking table */
 .rank-tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
 .rank-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em}
 .rank-tbl th.num{text-align:right}
@@ -54,66 +46,60 @@ h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .rank-tbl tr.contender{background:#fafaf7}
 .rank-tbl tr.contender td:first-child{border-left:3px solid var(--accent);padding-left:6px}
 .rank-tbl .pos{font-weight:600;width:28px;text-align:center}
-.rank-tbl .dot{display:inline-block;width:8px;height:8px;margin-right:6px;vertical-align:middle;flex-shrink:0}
+.rank-tbl .dot{display:inline-block;width:8px;height:8px;margin-right:6px;vertical-align:middle}
 .rank-tbl .nm{font-weight:500}
 .rank-tbl .gap-cell{font-size:10px}
 .rank-tbl .gap-cell .vgap{color:var(--fg);font-weight:500}
 .rank-tbl .gap-cell .pgap{color:var(--muted)}
-
-/* chart */
 .chart-box{position:relative;margin:8px 0}
 .chart-box svg{width:100%;height:auto;display:block}
-
-/* marginal table */
-.mg-tbl{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
-.mg-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:5px 8px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em}
-.mg-tbl th.num{text-align:right}
-.mg-tbl td{padding:4px 8px;border-bottom:1px solid var(--line)}
-.mg-tbl td.num{text-align:right}
-.mg-tbl .up{color:var(--accent);font-weight:500}
-.mg-tbl .down{color:var(--down);font-weight:500}
-.mg-tbl .winner-row td{background:#f6f9ef}
-.mg-tbl .bar{display:inline-block;height:6px;vertical-align:middle;margin-right:4px}
-
-/* threshold cards */
-.thresh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
-.thresh-card{background:#fff;padding:14px 16px}
-.thresh-card .tc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.thresh-card .tc-head .dot{width:10px;height:10px;display:inline-block;flex-shrink:0}
-.thresh-card .tc-name{font-size:12px;font-weight:500}
-.thresh-card .tc-pos{font-size:10px;color:var(--muted)}
-.thresh-card .tc-metric{margin-bottom:6px}
-.thresh-card .tc-label{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
-.thresh-card .tc-val{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
-.thresh-card .tc-sub{font-size:10px;color:var(--muted)}
-.thresh-card .tc-bar-wrap{width:100%;height:8px;background:#f0ede6;margin:6px 0 4px;position:relative}
-.thresh-card .tc-bar{position:absolute;left:0;top:0;height:100%}
-.thresh-card .tc-verdict{font-size:11px;padding:6px 8px;margin-top:8px;border:1px solid var(--line);background:#fafaf7}
-.verdict-hard{border-color:var(--danger) !important;background:#fdf5f5 !important;color:var(--danger)}
-.verdict-tight{border-color:var(--down) !important;background:#fdf8f2 !important;color:var(--down)}
-.verdict-ok{border-color:var(--accent) !important;background:#f6f9ef !important;color:var(--accent)}
-
-/* territory table */
-.terr-tbl{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
-.terr-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
-.terr-tbl th:hover{color:var(--fg)}
-.terr-tbl th.num{text-align:right}
-.terr-tbl td{padding:4px 6px;border-bottom:1px solid var(--line)}
-.terr-tbl td.num{text-align:right}
-.terr-tbl .leader-bar{display:inline-block;height:5px;vertical-align:middle;margin-right:3px}
-.terr-tbl .ext-row{border-left:2px dashed var(--muted)}
-.terr-tbl .si{font-size:8px;margin-left:2px;color:var(--faint)}
-.terr-tbl .si.act{color:var(--accent)}
-
-/* ext grid */
+.pb{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fafaf7;border:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap}
+.pb-b{font-family:inherit;font-size:13px;padding:4px 10px;border:1px solid var(--line-s);background:#fff;cursor:pointer;min-width:34px;text-align:center}
+.pb-b:hover{border-color:var(--accent);color:var(--accent)}
+.pb-b.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pb-slider{flex:1;min-width:160px;accent-color:var(--accent)}
+.pb-lbl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tip{position:absolute;background:#1a1a1a;color:#fff;padding:8px 11px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:20;opacity:0;transition:opacity .08s;line-height:1.5;font-family:'Fira Code',monospace;min-width:240px}
+.tip.on{opacity:1}
+.tip b{color:#fff}
+.tip .th{font-size:10px;color:#bbb;border-bottom:1px solid #333;padding-bottom:4px;margin-bottom:4px}
+.tip .tr{display:flex;justify-content:space-between;gap:12px;padding:1px 0}
+.tip .tr .d{display:inline-block;width:7px;height:7px;margin-right:4px;vertical-align:middle}
+.tip .tr .v{text-align:right;font-variant-numeric:tabular-nums}
+.s-tbl{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+.s-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
+.s-tbl th:hover{color:var(--fg)}
+.s-tbl th.num{text-align:right}
+.s-tbl td{padding:4px 6px;border-bottom:1px solid var(--line)}
+.s-tbl td.num{text-align:right}
+.s-tbl .up{color:var(--accent);font-weight:500}
+.s-tbl .dn{color:var(--down);font-weight:500}
+.s-tbl .si{font-size:8px;margin-left:2px;color:var(--faint)}
+.s-tbl .si.act{color:var(--accent)}
+.s-tbl .bar{display:inline-block;height:5px;vertical-align:middle;margin-right:3px}
+.s-tbl .ext-row{border-left:2px dashed var(--muted)}
+.thresh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.tc{background:#fff;padding:14px 16px}
+.tc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tc-head .dot{width:10px;height:10px;display:inline-block;flex-shrink:0}
+.tc-name{font-size:12px;font-weight:500}
+.tc-pos{font-size:10px;color:var(--muted)}
+.tc-label{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+.tc-val{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.tc-sub{font-size:10px;color:var(--muted)}
+.tc-bar-w{width:100%;height:8px;background:#f0ede6;margin:6px 0 4px;position:relative}
+.tc-bar{position:absolute;left:0;top:0;height:100%}
+.tc-verdict{font-size:11px;padding:6px 8px;margin-top:8px;border:1px solid var(--line);background:#fafaf7;line-height:1.5}
+.v-hard{border-color:var(--danger)!important;background:#fdf5f5!important;color:var(--danger)}
+.v-tight{border-color:var(--down)!important;background:#fdf8f2!important;color:var(--down)}
+.v-ok{border-color:var(--accent)!important;background:#f6f9ef!important;color:var(--accent)}
 .ext-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
-.ext-card{background:#fff;padding:12px 14px}
-.ext-card .ec-name{font-size:12px;font-weight:500;margin-bottom:4px}
-.ext-card .ec-av{font-size:10px;color:var(--muted);margin-bottom:8px}
-.ext-card .ec-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0;border-bottom:1px dotted var(--line)}
-.ext-card .ec-row:last-child{border-bottom:0}
-.ext-card .ec-row .dot{width:6px;height:6px;display:inline-block;margin-right:4px;vertical-align:middle}
-
+.ec{background:#fff;padding:12px 14px}
+.ec-nm{font-size:12px;font-weight:500;margin-bottom:4px}
+.ec-av{font-size:10px;color:var(--muted);margin-bottom:8px}
+.ec-r{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0;border-bottom:1px dotted var(--line)}
+.ec-r:last-child{border-bottom:0}
+.ec-r .dot{width:6px;height:6px;display:inline-block;margin-right:4px;vertical-align:middle}
 footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
 </style>
 </head>
@@ -122,661 +108,317 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-si
   <a class="back" href="https://cztpe.github.io/conteoONPE/">← dashboard principal</a>
   <h1>onpe · informe segunda vuelta</h1>
   <div class="sub">análisis de la carrera por el segundo puesto · fujimori consolida 1° (~17%), la segunda vuelta se define entre cuatro candidatxs separadxs por ~2pp · elecciones 2026 primera vuelta</div>
-
   <div class="status" id="status">cargando snapshots…</div>
-
   <div id="app" style="display:none">
-
     <div class="hero" id="hero"></div>
-
-    <div class="sec">
-      <h2 class="sec-h">ranking nacional · contendientes al 2° puesto <span class="meta" id="rankMeta"></span></h2>
-      <div class="sec-body"><table class="rank-tbl" id="rankTbl"></table></div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">evolución del gap · brechas entre puestos consecutivos</h2>
-      <div class="sec-body">
-        <p class="sec-note">líneas: gap en votos entre puestos consecutivos (2°↔3°, 3°↔4°, 4°↔5°) en cada snapshot. un cruce de líneas = cambio de posición inminente.</p>
-        <div class="chart-box" id="gapChart"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">voto marginal · quién gana cada lote de actas nuevas <span class="meta" id="mgMeta"></span></h2>
-      <div class="sec-body">
-        <p class="sec-note">entre cada par de snapshots consecutivos: cuántos votos nuevos capturó cada contendiente y qué % del total de votos nuevos representa. el que gana el marginal tiene momentum real.</p>
-        <div id="mgBody"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">velocidad de convergencia · pp por punto de avance</h2>
-      <div class="sec-body">
-        <p class="sec-note">cambio del gap 2°↔3° en puntos porcentuales por cada punto de avance de actas. valores negativos = el gap se cierra (el 3° se acerca). valores positivos = se abre (el 2° se aleja).</p>
-        <div class="chart-box" id="velChart"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">umbrales de quiebre · qué necesita cada candidatx</h2>
-      <div class="sec-body">
-        <p class="sec-note">dado el margen actual y los votos pendientes estimados: qué porcentaje del voto restante necesitaría cada contendiente para alcanzar al de arriba. cuanto más alto el umbral, más difícil el alcance.</p>
-        <div class="thresh-grid" id="threshGrid"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">extranjero · factor decisivo <span class="meta" id="extMeta"></span></h2>
-      <div class="sec-body">
-        <p class="sec-note">con ~53% de actas del extranjero sin procesar y lópez aliaga dominando con ~29% ahí (vs ~2% de sánchez), el exterior puede definir la carrera. desglose por continente.</p>
-        <div class="ext-grid" id="extGrid"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">mapa territorial · votos pendientes por departamento</h2>
-      <div class="sec-body">
-        <p class="sec-note">quién lidera entre los contendientes al 2° puesto en cada departamento, cuántas actas faltan, y votos proyectados pendientes. los departamentos con más actas pendientes son los que más pueden mover la aguja.</p>
-        <table class="terr-tbl" id="terrTbl"></table>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">fortalezas territoriales · departamentos donde cada contendiente lidera</h2>
-      <div class="sec-body">
-        <p class="sec-note">resumen de cuántos departamentos lidera cada contendiente entre los 4 candidatxs del bloque de segunda vuelta, y cuántos votos pendientes hay en esos departamentos.</p>
-        <div id="strengthBody"></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h2 class="sec-h">cronología de flips · cambios de posición entre contendientes</h2>
-      <div class="sec-body">
-        <p class="sec-note">cada vez que un contendiente superó a otro en el ranking nacional durante el conteo.</p>
-        <div id="flipsBody"></div>
-      </div>
-    </div>
-
+    <div class="sec"><h2 class="sec-h">ranking nacional · contendientes al 2° puesto <span class="meta" id="rankMeta"></span></h2><div class="sec-body"><table class="rank-tbl" id="rankTbl"></table></div></div>
+    <div class="sec"><h2 class="sec-h">evolución del gap · brechas entre puestos consecutivos</h2><div class="sec-body">
+      <p class="sec-note">eje horizontal = tiempo real (no equiespaciado: los snapshots se tomaron a intervalos irregulares). cada punto es un snapshot. hover para ver detalle de posiciones y brechas. las líneas muestran gap en votos entre puestos consecutivos. un cruce de líneas = flip de posiciones.</p>
+      <div class="pb" id="gapPb"><button class="pb-b" id="gapPlay">▶</button><button class="pb-b" id="gapBack" style="font-size:11px">⏮</button><button class="pb-b" id="gapFwd" style="font-size:11px">⏭</button><input type="range" class="pb-slider" id="gapSlider" min="0" max="0" value="0"/><span class="pb-lbl" id="gapLbl">—</span></div>
+      <div class="chart-box" id="gapChart"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">voto marginal · quién gana cada lote de actas nuevas <span class="meta" id="mgMeta"></span></h2><div class="sec-body">
+      <p class="sec-note">entre cada par de snapshots: votos nuevos por contendiente, % del lote, y duración real del intervalo. la columna "ritmo gap" muestra cómo cambió la brecha 2°↔3° en ese período. el que domina el marginal tiene momentum real.</p>
+      <div id="mgBody"></div><div id="mgOrigin"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">velocidad de convergencia · cambio del gap 2°↔3° por hora</h2><div class="sec-body">
+      <p class="sec-note">ritmo al que se cierra o abre la brecha entre el 2° y el 3° puesto, normalizado por horas reales entre snapshots (no por orden de snapshot). barras rojas = el 3° se acerca. barras verdes = el 2° se aleja. hover para detalles.</p>
+      <div class="chart-box" id="velChart"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">umbrales de quiebre · qué necesita cada candidatx</h2><div class="sec-body">
+      <p class="sec-note">dado el margen actual y los votos pendientes estimados: qué porcentaje del voto restante necesitaría cada contendiente para alcanzar al de arriba, asumiendo que el rival mantiene su ritmo actual.</p>
+      <div class="thresh-grid" id="threshGrid"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">extranjero · factor decisivo <span class="meta" id="extMeta"></span></h2><div class="sec-body">
+      <p class="sec-note">con más de la mitad de actas del extranjero sin procesar y lópez aliaga dominando con ~29% ahí (vs ~2% de sánchez), el exterior puede definir la carrera.</p>
+      <div class="ext-grid" id="extGrid"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">mapa territorial · votos pendientes y beneficiario proyectado</h2><div class="sec-body">
+      <p class="sec-note">quién lidera entre contendientes en cada depto, votos pendientes, y proyección de ganancia si el ratio actual se mantiene. click en headers para ordenar.</p>
+      <table class="s-tbl" id="terrTbl"></table>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">fortalezas territoriales · primeros, segundos y terceros por contendiente</h2><div class="sec-body">
+      <p class="sec-note">para cada contendiente: departamentos donde lidera entre los cuatro, quiénes son 2° y 3° ahí, y proyección de votos pendientes asumiendo que el ratio se mantiene.</p>
+      <div id="strengthBody"></div>
+    </div></div>
+    <div class="sec"><h2 class="sec-h">cronología de flips · cambios de posición entre contendientes</h2><div class="sec-body" id="flipsBody"></div></div>
   </div>
-
-  <footer>
-    onpe · informe segunda vuelta · <a href="https://cztpe.github.io/conteoONPE/">dashboard principal</a> · carlos zevallos trigoso · pucp · abril 2026
-  </footer>
+  <div class="tip" id="tip"></div>
+  <footer>onpe · informe segunda vuelta · <a href="https://cztpe.github.io/conteoONPE/">dashboard principal</a> · carlos zevallos trigoso · pucp · abril 2026</footer>
 </div>
-
 <script>
 (()=>{
-const ROOT='__root__', EXT='900000';
-const STORE='onpe_charts_v1';
-const FILE_RE=/^onpe_data_.*\.json$/i;
-const SNAPSHOTS_SUBDIR=(new URLSearchParams(location.search)).get('subdir')??'snapshots';
-
-// candidate colors — fixed by code
+const ROOT='__root__',EXT='900000',FILE_RE=/^onpe_data_.*\.json$/i;
+const SNAPSHOTS_SUBDIR=(new URLSearchParams(location.search)).get('subdir')?? 'snapshots';
 const CCOLORS={'10':'#3a6a8a','35':'#a04040','16':'#6a3a7a','14':'#c17a3a','8':'#5a7a3a','2':'#8a6a2a'};
 const CNAMES={'8':'Keiko Fujimori','35':'Rafael López Aliaga','16':'Jorge Nieto','14':'Ricardo Belmont','10':'Roberto Sánchez','2':'Alfonso López Chau','23':'Carlos Álvarez'};
 const fmt=n=>(n==null||isNaN(n))?'—':Number(n).toLocaleString('es-PE');
 const fmtS=n=>{if(n==null||isNaN(n))return'—';n=Number(n);if(Math.abs(n)>=1e6)return(n/1e6).toFixed(2)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'k';return String(n)};
 const pct=n=>(n==null||isNaN(n))?'—':Number(n).toFixed(3)+'%';
 const isBN=a=>a==='VOTOS EN BLANCO'||a==='VOTOS NULOS';
-
 let DB=null;
-
-function dname(code){
-  if(CNAMES[code])return CNAMES[code];
-  const c=DB.candidatos_master.find(x=>x.code===code);
-  if(!c)return code;
-  const p=(c.cand||c.agr).trim().split(/\s+/);
-  return p.length<=2?(c.cand||c.agr):p[0]+' '+p[p.length-2];
-}
-function ccolor(code){return CCOLORS[code]||'#888'}
+function dname(c){if(CNAMES[c])return CNAMES[c];const x=DB.candidatos_master.find(y=>y.code===c);if(!x)return c;const p=(x.cand||x.agr).trim().split(/\s+/);return p.length<=2?(x.cand||x.agr):p[0]+' '+p[p.length-2]}
+function ccolor(c){return CCOLORS[c]||'#888'}
 function candByCode(c){return DB.candidatos_master.find(x=>x.code===c)}
-
-// -- discovery (same as main dashboard) --
-function parseLocation(){
-  const params=new URLSearchParams(location.search);
-  const override=params.get('repo');
-  const subdir=SNAPSHOTS_SUBDIR?(SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'')+'/'):'';
-  if(override){const[o,r]=override.split('/');return{owner:o,repo:r,path:'/'+subdir}}
-  const host=location.hostname;
-  if(!host.endsWith('.github.io'))return null;
-  const owner=host.split('.')[0];
-  let path=location.pathname;
-  if(path.endsWith('.html'))path=path.replace(/\/[^/]+$/,'/');
-  if(!path.endsWith('/'))path+='/';
-  const segs=path.split('/').filter(Boolean);
-  if(segs.length>=1)return{owner,repo:segs[0],path:'/'+segs.slice(1).join('/')+(segs.length>1?'/':'')+subdir};
-  return{owner,repo:host,path:path+subdir};
-}
-async function listViaGithub({owner,repo,path}){
-  const api=`https://api.github.com/repos/${owner}/${repo}/contents${path}`;
-  const r=await fetch(api,{headers:{'Accept':'application/vnd.github+json'}});
-  if(!r.ok)throw new Error(`github api ${r.status}`);
-  const items=await r.json();
-  if(!Array.isArray(items))throw new Error('respuesta inesperada');
-  return items.filter(it=>it.type==='file'&&FILE_RE.test(it.name)).map(it=>({name:it.name,url:it.download_url}));
-}
-async function discover(){
-  const subdir=SNAPSHOTS_SUBDIR?(SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'')+'/'):'';
-  const manifestUrl='./'+subdir+'manifest.json';
-  try{
-    const r=await fetch(manifestUrl+'?t='+Date.now(),{cache:'no-store'});
-    if(r.ok){const arr=await r.json();if(Array.isArray(arr)&&arr.length)return arr.map(n=>({name:n,url:n.startsWith('http')||n.includes('/')?n:('./'+subdir+n)}));}
-  }catch(e){}
-  const loc=parseLocation();
-  if(loc)return await listViaGithub(loc);
-  throw new Error('no encontré snapshots');
-}
-async function fetchAll(files){
-  const results=await Promise.all(files.map(async f=>{
-    const url=f.url.startsWith('http')?f.url:(f.url+'?t='+Date.now());
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok)throw new Error(`${f.name}: HTTP ${r.status}`);
-    return{name:f.name,data:await r.json()};
-  }));
-  results.sort((a,b)=>(a.data.snapshot?.ts||'').localeCompare(b.data.snapshot?.ts||''));
-  return results;
-}
-function merge(results){
-  const seen=new Set(),clean=[];
-  for(const r of results){const ts=r.data.snapshot?.ts;if(!ts||seen.has(ts))continue;seen.add(ts);clean.push(r);}
-  if(!clean.length)throw new Error('sin snapshots válidos');
-  let base=clean[0].data,baseSize=Object.keys(base.nodes).length;
-  for(const r of clean){const sz=Object.keys(r.data.nodes).length;if(sz>baseSize){base=r.data;baseSize=sz;}}
-  const allNodes={...base.nodes};
-  for(const r of clean)for(const[k,n]of Object.entries(r.data.nodes))if(!allNodes[k])allNodes[k]=n;
-  const childrenMap={};for(const k in allNodes)childrenMap[k]=[];
-  for(const[k,n]of Object.entries(allNodes))if(n.parent&&childrenMap[n.parent]&&!childrenMap[n.parent].includes(k))childrenMap[n.parent].push(k);
-  for(const k in allNodes){childrenMap[k].sort((a,b)=>(allNodes[a].nombre||'').localeCompare(allNodes[b].nombre||''));allNodes[k]={...allNodes[k],children:childrenMap[k]};}
-  const snapshots=clean.map((r,i)=>({id:i,ts:r.data.snapshot.ts,label:r.data.snapshot.label,avance:r.data.snapshot.avance,_file:r.name}));
-  const data={};for(const k in allNodes)data[k]=clean.map(r=>r.data.data[k]||{av:0,part:0,cont:0,total:0,votes:{}});
-  return{snapshots,candidatos_master:base.candidatos_master,nodes:allNodes,data};
-}
-
-// helpers
-function totalValid(key,i){
-  const v=DB.data[key]?.[i]?.votes;if(!v)return 0;
-  let t=0;for(const c in v){const cc=candByCode(c);if(cc&&!isBN(cc.agr))t+=v[c];}return t;
-}
-function votesAt(key,code,i){return DB.data[key]?.[i]?.votes?.[code]??0}
-function pctAt(key,code,i){const t=totalValid(key,i);return t>0?votesAt(key,code,i)/t*100:0}
-
-// national ranking at snapshot i (real candidates only)
-function natRanking(i){
-  const nac=DB.data[ROOT]?.[i]?.votes||{};
-  const arr=[];
-  for(const[code,v]of Object.entries(nac)){const c=candByCode(code);if(!c||isBN(c.agr))continue;arr.push({code,v});}
-  const t=arr.reduce((s,x)=>s+x.v,0);
-  arr.sort((a,b)=>b.v-a.v);
-  return arr.map((x,pos)=>({...x,pos:pos+1,pct:t>0?x.v/t*100:0,total:t}));
-}
-
-// identify contenders: candidates ranked 2-5 at latest snapshot
-function getContenders(){
-  const rk=natRanking(DB.snapshots.length-1);
-  return rk.slice(1,5).map(x=>x.code);
-}
-
-// ============ RENDER FUNCTIONS ============
+function snapTime(i){return new Date(DB.snapshots[i].ts)}
+function hoursBetween(i,j){return(snapTime(j)-snapTime(i))/3.6e6}
+function fmtDate(d){const months=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];const lima=new Date(d.getTime()-5*3600000);return lima.getDate()+' '+months[lima.getMonth()]+' '+String(lima.getHours()).padStart(2,'0')+':'+String(lima.getMinutes()).padStart(2,'0')}
+function parseLocation(){const params=new URLSearchParams(location.search);const override=params.get('repo');const subdir=SNAPSHOTS_SUBDIR?(SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'')+'/'):'';if(override){const[o,r]=override.split('/');return{owner:o,repo:r,path:'/'+subdir}}const host=location.hostname;if(!host.endsWith('.github.io'))return null;const owner=host.split('.')[0];let path=location.pathname;if(path.endsWith('.html'))path=path.replace(/\/[^/]+$/,'/');if(!path.endsWith('/'))path+='/';const segs=path.split('/').filter(Boolean);if(segs.length>=1)return{owner,repo:segs[0],path:'/'+segs.slice(1).join('/')+(segs.length>1?'/':'')+subdir};return{owner,repo:host,path:path+subdir}}
+async function listViaGithub({owner,repo,path}){const api='https://api.github.com/repos/'+owner+'/'+repo+'/contents'+path;const r=await fetch(api,{headers:{'Accept':'application/vnd.github+json'}});if(!r.ok)throw new Error('github api '+r.status);const items=await r.json();if(!Array.isArray(items))throw new Error('inesperado');return items.filter(it=>it.type==='file'&&FILE_RE.test(it.name)).map(it=>({name:it.name,url:it.download_url}))}
+async function discover(){const subdir=SNAPSHOTS_SUBDIR?(SNAPSHOTS_SUBDIR.replace(/^\/+|\/+$/g,'')+'/'):'';try{const r=await fetch('./'+subdir+'manifest.json?t='+Date.now(),{cache:'no-store'});if(r.ok){const arr=await r.json();if(Array.isArray(arr)&&arr.length)return arr.map(n=>({name:n,url:n.startsWith('http')||n.includes('/')?n:('./'+subdir+n)}))}}catch(e){}const loc=parseLocation();if(loc)return await listViaGithub(loc);throw new Error('no encontré snapshots')}
+async function fetchAll(files){const results=await Promise.all(files.map(async f=>{const url=f.url.startsWith('http')?f.url:(f.url+'?t='+Date.now());const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(f.name+': HTTP '+r.status);return{name:f.name,data:await r.json()}}));results.sort((a,b)=>(a.data.snapshot?.ts||'').localeCompare(b.data.snapshot?.ts||''));return results}
+function merge(results){const seen=new Set(),clean=[];for(const r of results){const ts=r.data.snapshot?.ts;if(!ts||seen.has(ts))continue;seen.add(ts);clean.push(r)}if(!clean.length)throw new Error('sin snapshots');let base=clean[0].data,bsz=Object.keys(base.nodes).length;for(const r of clean){const sz=Object.keys(r.data.nodes).length;if(sz>bsz){base=r.data;bsz=sz}}const allN={...base.nodes};for(const r of clean)for(const[k,n]of Object.entries(r.data.nodes))if(!allN[k])allN[k]=n;const cm={};for(const k in allN)cm[k]=[];for(const[k,n]of Object.entries(allN))if(n.parent&&cm[n.parent]&&!cm[n.parent].includes(k))cm[n.parent].push(k);for(const k in allN){cm[k].sort((a,b)=>(allN[a].nombre||'').localeCompare(allN[b].nombre||''));allN[k]={...allN[k],children:cm[k]}}const snaps=clean.map((r,i)=>({id:i,ts:r.data.snapshot.ts,label:r.data.snapshot.label,avance:r.data.snapshot.avance}));const data={};for(const k in allN)data[k]=clean.map(r=>r.data.data[k]||{av:0,part:0,cont:0,total:0,votes:{}});return{snapshots:snaps,candidatos_master:base.candidatos_master,nodes:allN,data}}
+function totalValid(k,i){const v=DB.data[k]?.[i]?.votes;if(!v)return 0;let t=0;for(const c in v){const cc=candByCode(c);if(cc&&!isBN(cc.agr))t+=v[c]}return t}
+function votesAt(k,c,i){return DB.data[k]?.[i]?.votes?.[c]??0}
+function natRanking(i){const nac=DB.data[ROOT]?.[i]?.votes||{};const arr=[];for(const[c,v]of Object.entries(nac)){const cc=candByCode(c);if(!cc||isBN(cc.agr))continue;arr.push({code:c,v})}const t=arr.reduce((s,x)=>s+x.v,0);arr.sort((a,b)=>b.v-a.v);return arr.map((x,p)=>({...x,pos:p+1,pct:t>0?x.v/t*100:0,total:t}))}
+function getContenders(){return natRanking(DB.snapshots.length-1).slice(1,5).map(x=>x.code)}
+const tipEl=()=>document.getElementById('tip');
+function showTip(html,e){const t=tipEl();t.innerHTML=html;t.classList.add('on');moveTip(e)}
+function moveTip(e){const t=tipEl();const tw=t.offsetWidth||280,th=t.offsetHeight||100;let x=e.pageX+14,y=e.pageY+14;if(x+tw>window.scrollX+window.innerWidth-8)x=e.pageX-tw-14;if(y+th>window.scrollY+window.innerHeight-8)y=e.pageY-th-14;t.style.left=x+'px';t.style.top=y+'px'}
+function hideTip(){tipEl().classList.remove('on')}
 
 function renderHero(){
-  const el=document.getElementById('hero');
-  const li=DB.snapshots.length-1;
-  const rk=natRanking(li);
-  const second=rk[1],third=rk[2],fourth=rk[3],fifth=rk[4];
-  const gap23v=second.v-third.v,gap23p=second.pct-third.pct;
-  const gap34v=third.v-fourth.v,gap34p=third.pct-fourth.pct;
-  const gap45v=fourth.v-fifth.v,gap45p=fourth.pct-fifth.pct;
-  const snap=DB.snapshots[li];
-  const pendAcatas=DB.data[ROOT][li].total-DB.data[ROOT][li].cont;
-  // estimated pending votes
-  const av=DB.data[ROOT][li].av;
-  const vAct=rk.reduce((s,x)=>s+x.v,0);
-  const vPend=av>0?Math.round(vAct*((100-av)/av)):0;
-
-  el.innerHTML=`
-    <div class="hero-card main">
-      <div class="h-label">brecha 2° ↔ 3°</div>
-      <div class="h-val" style="color:${gap23v>0?'var(--accent)':'var(--danger)'}">${fmt(gap23v)} votos</div>
-      <div class="h-sub"><b>${gap23p.toFixed(3)}pp</b> · <span style="color:${ccolor(second.code)}">${dname(second.code)}</span> vs <span style="color:${ccolor(third.code)}">${dname(third.code)}</span></div>
-      <div class="h-sub">${snap.label} · avance ${pct(snap.avance)}</div>
-    </div>
-    <div class="hero-card">
-      <div class="h-label">brecha 3° ↔ 4°</div>
-      <div class="h-val">${fmt(gap34v)}</div>
-      <div class="h-sub"><b>${gap34p.toFixed(3)}pp</b> · <span style="color:${ccolor(third.code)}">${dname(third.code).split(' ').pop()}</span> vs <span style="color:${ccolor(fourth.code)}">${dname(fourth.code).split(' ').pop()}</span></div>
-    </div>
-    <div class="hero-card">
-      <div class="h-label">votos por procesar (est.)</div>
-      <div class="h-val">~${fmtS(vPend)}</div>
-      <div class="h-sub"><b>${fmt(pendAcatas)}</b> actas pendientes · <b>${(100-av).toFixed(3)}%</b> del conteo</div>
-    </div>`;
+  const el=document.getElementById('hero'),li=DB.snapshots.length-1,rk=natRanking(li);
+  const s=rk[1],t=rk[2],f=rk[3],fi=rk[4],g23=s.v-t.v,g23p=s.pct-t.pct;
+  const av=DB.data[ROOT][li].av,vAct=rk.reduce((a,x)=>a+x.v,0),vPend=av>0?Math.round(vAct*((100-av)/av)):0;
+  const pendA=DB.data[ROOT][li].total-DB.data[ROOT][li].cont,elapsed=hoursBetween(0,li);
+  el.innerHTML='<div class="hero-card main"><div class="h-label">brecha 2° ↔ 3°</div><div class="h-val" style="color:'+(g23>0?'var(--accent)':'var(--danger)')+'">'+fmt(g23)+' votos</div><div class="h-sub"><b>'+g23p.toFixed(3)+'pp</b> · <span style="color:'+ccolor(s.code)+'">'+dname(s.code)+'</span> vs <span style="color:'+ccolor(t.code)+'">'+dname(t.code)+'</span></div><div class="h-sub">'+DB.snapshots[li].label+' · avance '+pct(DB.snapshots[li].avance)+' · '+DB.snapshots.length+' snapshots en '+elapsed.toFixed(1)+'h</div></div><div class="hero-card"><div class="h-label">brechas 3°↔4° / 4°↔5°</div><div class="h-val">'+fmtS(t.v-f.v)+' / '+fmtS(f.v-fi.v)+'</div><div class="h-sub"><b>'+(t.pct-f.pct).toFixed(3)+'pp</b> / <b>'+(f.pct-fi.pct).toFixed(3)+'pp</b></div></div><div class="hero-card"><div class="h-label">votos por procesar (est.)</div><div class="h-val">~'+fmtS(vPend)+'</div><div class="h-sub"><b>'+fmt(pendA)+'</b> actas pendientes · <b>'+(100-av).toFixed(3)+'%</b> restante</div></div>';
 }
-
 function renderRanking(){
-  const li=DB.snapshots.length-1;
-  const rk=natRanking(li);
-  const contenders=getContenders();
-  document.getElementById('rankMeta').textContent=`snapshot ${li} · ${DB.snapshots[li].label} · avance ${pct(DB.snapshots[li].avance)}`;
-
-  let html='<tr><th>#</th><th>candidatx</th><th>agrupación</th><th class="num">votos</th><th class="num">%</th><th class="num">gap con el de arriba</th></tr>';
-  const top8=rk.slice(0,8);
-  for(let i=0;i<top8.length;i++){
-    const r=top8[i];
-    const c=candByCode(r.code);
-    const isCont=contenders.includes(r.code);
-    const gap=i>0?top8[i-1].v-r.v:0;
-    const gapP=i>0?top8[i-1].pct-r.pct:0;
-    html+=`<tr class="${isCont?'contender':''}">
-      <td class="pos">${r.pos}</td>
-      <td><span class="dot" style="background:${ccolor(r.code)}"></span><span class="nm">${dname(r.code)}</span></td>
-      <td style="color:var(--muted);font-size:10px">${(c?.agr||'').toLowerCase()}</td>
-      <td class="num">${fmt(r.v)}</td>
-      <td class="num"><b>${r.pct.toFixed(3)}%</b></td>
-      <td class="num gap-cell">${i>0?`<span class="vgap">${fmt(gap)}</span> <span class="pgap">(${gapP.toFixed(3)}pp)</span>`:'—'}</td>
-    </tr>`;
-  }
-  document.getElementById('rankTbl').innerHTML=html;
+  const li=DB.snapshots.length-1,rk=natRanking(li),cont=getContenders();
+  document.getElementById('rankMeta').textContent='s'+li+' · '+DB.snapshots[li].label+' · '+pct(DB.snapshots[li].avance);
+  let h='<tr><th>#</th><th>candidatx</th><th>agrupación</th><th class="num">votos</th><th class="num">%</th><th class="num">gap con el de arriba</th></tr>';
+  const top5=rk.slice(0,5);
+  for(let i=0;i<top5.length;i++){const r=top5[i],c=candByCode(r.code),ic=cont.includes(r.code),gap=i>0?top5[i-1].v-r.v:0,gP=i>0?top5[i-1].pct-r.pct:0;
+    h+='<tr class="'+(ic?'contender':'')+'"><td class="pos">'+r.pos+'</td><td><span class="dot" style="background:'+ccolor(r.code)+'"></span><span class="nm">'+dname(r.code)+'</span></td><td style="color:var(--muted);font-size:10px">'+(c?.agr||'').toLowerCase()+'</td><td class="num">'+fmt(r.v)+'</td><td class="num"><b>'+r.pct.toFixed(3)+'%</b></td><td class="num gap-cell">'+(i>0?'<span class="vgap">'+fmt(gap)+'</span> <span class="pgap">('+gP.toFixed(3)+'pp)</span>':'—')+'</td></tr>'}
+  document.getElementById('rankTbl').innerHTML=h;
 }
 
-function renderGapChart(){
-  const W=1200,H=280,padL=65,padR=30,padT=20,padB=40;
-  const iW=W-padL-padR,iH=H-padT-padB;
-  const n=DB.snapshots.length;
-  if(n<2){document.getElementById('gapChart').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px">necesita al menos 2 snapshots</div>';return;}
-
-  // compute gaps at each snapshot
+// GAP CHART with time X, hover, playback
+let gapPb={playing:false,idx:0,timer:null};
+function renderGapChart(maxI){
+  const W=1200,H=300,pL=65,pR=30,pT=20,pB=42,iW=W-pL-pR,iH=H-pT-pB,n=DB.snapshots.length;
+  if(n<2){document.getElementById('gapChart').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px">necesita 2+ snapshots</div>';return}
+  const mx=maxI!=null?maxI:n-1;
+  const t0=snapTime(0).getTime(),tN=snapTime(n-1).getTime(),tSpan=tN-t0||1;
+  const xOf=i=>{const ti=snapTime(Math.min(i,n-1)).getTime();return pL+((ti-t0)/tSpan)*iW};
   const gaps23=[],gaps34=[],gaps45=[];
-  for(let i=0;i<n;i++){
-    const rk=natRanking(i);
-    gaps23.push(rk.length>2?rk[1].v-rk[2].v:0);
-    gaps34.push(rk.length>3?rk[2].v-rk[3].v:0);
-    gaps45.push(rk.length>4?rk[3].v-rk[4].v:0);
-  }
-  const allV=[...gaps23,...gaps34,...gaps45];
-  const yMax=Math.max(...allV)*1.15||1;
-  const yMin=Math.min(0,...allV);
-  const span=yMax-yMin||1;
-
-  const xOf=i=>n===1?padL+iW/2:padL+(i/(n-1))*iW;
-  const yOf=v=>padT+iH-((v-yMin)/span)*iH;
-
-  // y ticks
-  const nT=5;let yTicks='';
-  for(let k=0;k<=nT;k++){const v=yMin+(span/nT)*k;yTicks+=`<line x1="${padL}" y1="${yOf(v)}" x2="${W-padR}" y2="${yOf(v)}" stroke="#f0f0f0"/><text x="${padL-6}" y="${yOf(v)+3}" text-anchor="end" font-size="9" fill="#999">${fmtS(v)}</text>`;}
-  // x ticks
-  let xTicks='';
-  // show every Nth label to avoid clutter
-  const step=Math.max(1,Math.floor(n/12));
-  for(let i=0;i<n;i++){
-    const x=xOf(i);
-    if(i%step===0||i===n-1)xTicks+=`<text x="${x}" y="${H-padB+14}" text-anchor="middle" font-size="8" fill="#999">s${i}</text>`;
-    xTicks+=`<line x1="${x}" y1="${H-padB-2}" x2="${x}" y2="${H-padB+2}" stroke="#ccc"/>`;
-  }
-
-  function line(arr,color,label){
-    if(n===1)return`<circle cx="${xOf(0)}" cy="${yOf(arr[0])}" r="3" fill="${color}"/>`;
-    const pts=arr.map((v,i)=>[xOf(i),yOf(v)]);
-    const d=pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
-    const dots=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${color}"/>`).join('');
-    const end=pts[pts.length-1];
-    const lbl=`<text x="${end[0]+6}" y="${end[1]+3}" font-size="10" fill="${color}" font-weight="500">${fmtS(arr[arr.length-1])} ${label}</text>`;
-    return`<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>${dots}${lbl}`;
-  }
-
-  const svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${yTicks}${xTicks}
-    <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc"/>
-    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc"/>
-    ${line(gaps23,'#3a6a8a','2°↔3°')}
-    ${line(gaps34,'#6a3a7a','3°↔4°')}
-    ${line(gaps45,'#c17a3a','4°↔5°')}
-  </svg>`;
+  for(let i=0;i<=mx;i++){const rk=natRanking(i);gaps23.push(rk.length>2?rk[1].v-rk[2].v:0);gaps34.push(rk.length>3?rk[2].v-rk[3].v:0);gaps45.push(rk.length>4?rk[3].v-rk[4].v:0)}
+  const yMax=Math.max(...gaps23,...gaps34,...gaps45)*1.15||1;
+  const yOf=v=>pT+iH-(v/yMax)*iH;
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
+  for(let k=0;k<=4;k++){const v=(yMax/4)*k;svg+='<line x1="'+pL+'" y1="'+yOf(v)+'" x2="'+(W-pR)+'" y2="'+yOf(v)+'" stroke="#f0f0f0"/><text x="'+(pL-6)+'" y="'+(yOf(v)+3)+'" text-anchor="end" font-size="9" fill="#999">'+fmtS(v)+'</text>'}
+  const step=Math.max(1,Math.floor(n/15));
+  for(let i=0;i<=mx;i++){const x=xOf(i);if(i%step===0||i===mx)svg+='<text x="'+x+'" y="'+(H-pB+14)+'" text-anchor="middle" font-size="8" fill="#999">'+DB.snapshots[i].label.replace('apr ','')+'</text>';svg+='<line x1="'+x+'" y1="'+(H-pB-2)+'" x2="'+x+'" y2="'+(H-pB+2)+'" stroke="#ccc"/>'}
+  svg+='<line x1="'+pL+'" y1="'+(H-pB)+'" x2="'+(W-pR)+'" y2="'+(H-pB)+'" stroke="#ccc"/><line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#ccc"/>';
+  function drawLine(arr,color,lbl){if(arr.length<2)return'';const pts=arr.map(function(_,i){return[xOf(i),yOf(arr[i])]});let d='';for(let i=0;i<pts.length;i++)d+=(i?'L':'M')+pts[i][0]+','+pts[i][1];let dots='';for(let i=0;i<pts.length;i++)dots+='<circle cx="'+pts[i][0]+'" cy="'+pts[i][1]+'" r="2" fill="'+color+'"/>';const e=pts[pts.length-1];return'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="1.8" stroke-linejoin="round"/>'+dots+'<text x="'+(e[0]+6)+'" y="'+(e[1]+3)+'" font-size="10" fill="'+color+'" font-weight="500">'+fmtS(arr[arr.length-1])+' '+lbl+'</text>'}
+  svg+=drawLine(gaps23,'#3a6a8a','2°↔3°');svg+=drawLine(gaps34,'#6a3a7a','3°↔4°');svg+=drawLine(gaps45,'#c17a3a','4°↔5°');
+  for(let i=0;i<=mx;i++){const x=xOf(i);const lx=i===0?pL:(xOf(i-1)+x)/2;const rx=i===mx?(W-pR):(x+xOf(Math.min(i+1,mx)))/2;svg+='<rect class="gap-hit" x="'+lx+'" y="'+pT+'" width="'+(rx-lx)+'" height="'+iH+'" fill="transparent" data-i="'+i+'" style="cursor:crosshair"/>'}
+  svg+='</svg>';
   document.getElementById('gapChart').innerHTML=svg;
+  document.querySelectorAll('.gap-hit').forEach(function(h){
+    h.addEventListener('mouseenter',function(e){
+      const i=+h.dataset.i,rk=natRanking(i),s=DB.snapshots[i];
+      let html='<div class="th"><b>s'+i+'</b> · '+s.label+' · avance '+pct(s.avance)+'</div>';
+      html+='<div class="tr"><span>2° <span class="d" style="background:'+ccolor(rk[1].code)+'"></span>'+dname(rk[1].code).split(' ').pop()+'</span><span class="v">'+rk[1].pct.toFixed(3)+'% · '+fmtS(rk[1].v)+'</span></div>';
+      html+='<div class="tr"><span>3° <span class="d" style="background:'+ccolor(rk[2].code)+'"></span>'+dname(rk[2].code).split(' ').pop()+'</span><span class="v">'+rk[2].pct.toFixed(3)+'% · '+fmtS(rk[2].v)+'</span></div>';
+      html+='<div class="tr" style="border-top:1px solid #333;padding-top:3px;margin-top:3px"><span>gap 2°↔3°</span><span class="v" style="color:#8ab870"><b>'+fmtS(rk[1].v-rk[2].v)+'</b> · '+(rk[1].pct-rk[2].pct).toFixed(3)+'pp</span></div>';
+      html+='<div class="tr"><span>gap 3°↔4°</span><span class="v">'+fmtS(rk[2].v-rk[3].v)+'</span></div>';
+      html+='<div class="tr"><span>gap 4°↔5°</span><span class="v">'+fmtS(rk[3].v-rk[4].v)+'</span></div>';
+      if(i>0){html+='<div class="tr" style="color:#888"><span>intervalo</span><span>'+hoursBetween(i-1,i).toFixed(1)+'h desde s'+(i-1)+'</span></div>'}
+      showTip(html,e)});
+    h.addEventListener('mousemove',function(e){moveTip(e)});
+    h.addEventListener('mouseleave',hideTip)});
+}
+function gapPbInit(){
+  const n=DB.snapshots.length,sl=document.getElementById('gapSlider');
+  sl.max=n-1;sl.value=n-1;gapPb.idx=n-1;
+  document.getElementById('gapLbl').textContent='s'+(n-1)+' · '+DB.snapshots[n-1].label;
+  function apply(idx){gapPb.idx=idx;sl.value=idx;document.getElementById('gapLbl').textContent='s'+idx+'/'+(n-1)+' · '+DB.snapshots[idx].label;renderGapChart(idx)}
+  document.getElementById('gapPlay').onclick=function(){
+    if(gapPb.playing){gapPb.playing=false;clearInterval(gapPb.timer);document.getElementById('gapPlay').textContent='▶';document.getElementById('gapPlay').classList.remove('on');return}
+    if(gapPb.idx>=n-1)gapPb.idx=0;gapPb.playing=true;document.getElementById('gapPlay').textContent='⏸';document.getElementById('gapPlay').classList.add('on');
+    gapPb.timer=setInterval(function(){if(gapPb.idx>=n-1){gapPb.playing=false;clearInterval(gapPb.timer);document.getElementById('gapPlay').textContent='▶';document.getElementById('gapPlay').classList.remove('on');return}gapPb.idx++;apply(gapPb.idx)},600)};
+  document.getElementById('gapBack').onclick=function(){if(gapPb.idx>0)apply(gapPb.idx-1)};
+  document.getElementById('gapFwd').onclick=function(){if(gapPb.idx<n-1)apply(gapPb.idx+1)};
+  sl.oninput=function(){apply(+sl.value)};
 }
 
+// MARGINAL + ORIGIN
 function renderMarginal(){
-  const n=DB.snapshots.length;
-  const contenders=getContenders();
-  document.getElementById('mgMeta').textContent=`${n-1} intervalos`;
-  if(n<2){document.getElementById('mgBody').innerHTML='<div style="color:var(--muted)">necesita 2+ snapshots</div>';return;}
-
-  let html='<table class="mg-tbl"><tr><th>intervalo</th><th>Δ avance</th><th>votos nuevos</th>';
-  for(const c of contenders)html+=`<th class="num"><span style="color:${ccolor(c)}">${dname(c).split(' ').pop()}</span></th>`;
-  html+=`<th class="num">gana marginal</th></tr>`;
-
-  // show last 8 intervals (most recent)
+  const n=DB.snapshots.length,cont=getContenders();
+  document.getElementById('mgMeta').textContent=(n-1)+' intervalos';
+  if(n<2){document.getElementById('mgBody').innerHTML='<div style="color:var(--muted)">necesita 2+ snapshots</div>';return}
+  let h='<table class="s-tbl"><tr><th>intervalo</th><th class="num">duración</th><th class="num">Δ avance</th><th class="num">votos nuevos</th>';
+  for(const c of cont)h+='<th class="num"><span style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</span></th>';
+  h+='<th class="num">gana marginal</th><th class="num">ritmo gap 2°↔3°</th></tr>';
   const start=Math.max(0,n-9);
   for(let i=n-1;i>=start+1;i--){
-    const prev=i-1;
-    const avD=(DB.snapshots[i].avance-DB.snapshots[prev].avance);
-    const totPrev=totalValid(ROOT,prev),totCurr=totalValid(ROOT,i);
-    const newVotes=totCurr-totPrev;
-    const deltas=contenders.map(c=>votesAt(ROOT,c,i)-votesAt(ROOT,c,prev));
-    const maxD=Math.max(...deltas);
-    const winnerIdx=deltas.indexOf(maxD);
-    const winnerCode=contenders[winnerIdx];
-
-    html+=`<tr>`;
-    html+=`<td>s${prev}→s${i}</td>`;
-    html+=`<td class="num">+${avD.toFixed(3)}pp</td>`;
-    html+=`<td class="num">${fmtS(newVotes)}</td>`;
-    for(let j=0;j<contenders.length;j++){
-      const d=deltas[j];
-      const pctOfNew=newVotes>0?(d/newVotes*100).toFixed(1)+'%':'—';
-      const isWin=j===winnerIdx;
-      html+=`<td class="num ${isWin?'up':''}">${d>0?'+':''}${fmtS(d)} <span style="color:var(--muted);font-size:9px">(${pctOfNew})</span></td>`;
-    }
-    html+=`<td class="num" style="color:${ccolor(winnerCode)};font-weight:500">${dname(winnerCode).split(' ').pop()}</td>`;
-    html+=`</tr>`;
-  }
-  html+='</table>';
-  document.getElementById('mgBody').innerHTML=html;
+    const p=i-1,hrs=hoursBetween(p,i),avD=DB.snapshots[i].avance-DB.snapshots[p].avance;
+    const tP=totalValid(ROOT,p),tC=totalValid(ROOT,i),nv=tC-tP;
+    const deltas=cont.map(function(c){return votesAt(ROOT,c,i)-votesAt(ROOT,c,p)});
+    const maxD=Math.max.apply(null,deltas),wi=deltas.indexOf(maxD),wc=cont[wi];
+    const rk0=natRanking(p),rk1=natRanking(i),g0=rk0[1].v-rk0[2].v,g1=rk1[1].v-rk1[2].v,dG=g1-g0,dGhr=hrs>0?dG/hrs:0;
+    h+='<tr><td>s'+p+'→s'+i+'</td><td class="num">'+hrs.toFixed(1)+'h</td><td class="num">+'+avD.toFixed(3)+'pp</td><td class="num">'+fmtS(nv)+'</td>';
+    for(let j=0;j<cont.length;j++){const d=deltas[j],pn=nv>0?(d/nv*100).toFixed(1)+'%':'—';h+='<td class="num '+(j===wi?'up':'')+'">'+(d>0?'+':'')+fmtS(d)+' <span style="color:var(--muted);font-size:9px">('+pn+')</span></td>'}
+    h+='<td class="num" style="color:'+ccolor(wc)+';font-weight:500">'+dname(wc).split(' ').pop()+'</td>';
+    h+='<td class="num '+(dG>0?'up':'dn')+'">'+(dG>0?'+':'')+fmtS(dG)+' <span style="font-size:9px;color:var(--muted)">'+(dGhr>0?'+':'')+Math.round(dGhr)+'/h</span></td></tr>'}
+  h+='</table>';
+  document.getElementById('mgBody').innerHTML=h;
+  // ORIGIN last 4 snapshots
+  const i0=Math.max(0,n-5),i1=n-1,hrs=hoursBetween(i0,i1),deps=DB.nodes[ROOT].children;
+  const depD=[];
+  for(const k of deps){const nm=DB.nodes[k].nombre;const cd={};for(const c of cont)cd[c]=votesAt(k,c,i1)-votesAt(k,c,i0);let tn=0;for(const c in DB.data[k][i1].votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tn+=(DB.data[k][i1].votes[c]||0)-(DB.data[k][i0]?.votes?.[c]||0)}const avD=(DB.data[k][i1]?.av||0)-(DB.data[k][i0]?.av||0);depD.push({k:k,nm:nm,tn:tn,cd:cd,avD:avD})}
+  depD.sort(function(a,b){return b.tn-a.tn});
+  const top8=depD.filter(function(d){return d.tn>0}).slice(0,8);
+  let oh='<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px">origen de votos · últimos '+(n-1-i0+1)+' snapshots (s'+i0+'→s'+i1+', '+hrs.toFixed(1)+'h)</div>';
+  oh+='<table class="s-tbl"><tr><th>territorio</th><th class="num">votos nuevos</th><th class="num">Δ avance</th>';
+  for(const c of cont)oh+='<th class="num" style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</th>';
+  oh+='<th>beneficia a</th></tr>';
+  for(const d of top8){const best=cont.reduce(function(a,b){return d.cd[a]>d.cd[b]?a:b});
+    oh+='<tr><td>'+d.nm.toLowerCase()+'</td><td class="num">'+fmtS(d.tn)+'</td><td class="num">+'+d.avD.toFixed(1)+'pp</td>';
+    for(const c of cont)oh+='<td class="num">'+(d.cd[c]>0?'+':'')+fmtS(d.cd[c])+'</td>';
+    oh+='<td style="color:'+ccolor(best)+';font-weight:500">'+dname(best).split(' ').pop()+'</td></tr>'}
+  oh+='</table></div>';
+  document.getElementById('mgOrigin').innerHTML=oh;
 }
 
+// VELOCITY per hour with hover
 function renderVelocity(){
   const n=DB.snapshots.length;
-  if(n<3){document.getElementById('velChart').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px">necesita 3+ snapshots</div>';return;}
-
-  // compute gap23 in pp, then delta-gap / delta-avance for each interval
-  const points=[];
-  for(let i=1;i<n;i++){
-    const rk0=natRanking(i-1),rk1=natRanking(i);
-    const gap0=rk0[1].pct-rk0[2].pct;
-    const gap1=rk1[1].pct-rk1[2].pct;
-    const dGap=gap1-gap0;
-    const dAv=DB.snapshots[i].avance-DB.snapshots[i-1].avance;
-    const vel=dAv>0?dGap/dAv:0;
-    points.push({i,vel,dGap,dAv,avance:DB.snapshots[i].avance});
-  }
-
-  const W=1200,H=220,padL=65,padR=30,padT=20,padB=40;
-  const iW=W-padL-padR,iH=H-padT-padB;
-  const vals=points.map(p=>p.vel);
-  const yMax=Math.max(...vals.map(Math.abs),0.01)*1.3;
-  const xOf=i=>padL+((i-1)/(n-2))*iW;
-  const yOf=v=>padT+iH/2-(v/yMax)*(iH/2);
-
-  // zero line
-  const zeroY=yOf(0);
-  let svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    <line x1="${padL}" y1="${zeroY}" x2="${W-padR}" y2="${zeroY}" stroke="#ccc" stroke-dasharray="4,2"/>
-    <text x="${padL-6}" y="${zeroY+3}" text-anchor="end" font-size="9" fill="#999">0</text>
-    <text x="${W-padR+4}" y="${zeroY-8}" font-size="9" fill="var(--accent)">↑ gap se abre</text>
-    <text x="${W-padR+4}" y="${zeroY+14}" font-size="9" fill="var(--down)">↓ gap se cierra</text>`;
-
-  // bars
-  const barW=Math.min(40,iW/(points.length*1.5));
-  for(const p of points){
-    const x=xOf(p.i);
-    const y=yOf(p.vel);
-    const h=Math.abs(y-zeroY);
-    const color=p.vel>=0?'var(--accent)':'var(--down)';
-    const top=p.vel>=0?y:zeroY;
-    svg+=`<rect x="${x-barW/2}" y="${top}" width="${barW}" height="${h}" fill="${color}" opacity="0.7"/>`;
-    svg+=`<text x="${x}" y="${H-padB+14}" text-anchor="middle" font-size="8" fill="#999">s${p.i}</text>`;
-  }
-  svg+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#ccc"/>
-    <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#ccc"/>
-  </svg>`;
+  if(n<3){document.getElementById('velChart').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px">necesita 3+ snapshots</div>';return}
+  const pts=[];
+  for(let i=1;i<n;i++){const rk0=natRanking(i-1),rk1=natRanking(i),g0=rk0[1].pct-rk0[2].pct,g1=rk1[1].pct-rk1[2].pct,dG=g1-g0,hrs=hoursBetween(i-1,i),vel=hrs>0?dG/hrs:0;
+    pts.push({i:i,vel:vel,dG:dG,hrs:hrs,g1:g1,who2:rk1[1].code,who3:rk1[2].code,avance:DB.snapshots[i].avance})}
+  const W=1200,H=240,pL=65,pR=30,pT=20,pB=42,iW=W-pL-pR,iH=H-pT-pB;
+  const vals=pts.map(function(p){return p.vel});const yMax=Math.max.apply(null,vals.map(Math.abs))*1.3||0.001;
+  const t0=snapTime(0).getTime(),tN=snapTime(n-1).getTime(),tSpan=tN-t0||1;
+  const xOf=function(i){return pL+((snapTime(i).getTime()-t0)/tSpan)*iW};
+  const zeroY=pT+iH/2,yOf=function(v){return pT+iH/2-(v/yMax)*(iH/2)};
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
+  svg+='<line x1="'+pL+'" y1="'+zeroY+'" x2="'+(W-pR)+'" y2="'+zeroY+'" stroke="#ccc" stroke-dasharray="4,2"/>';
+  svg+='<text x="'+(W-pR+4)+'" y="'+(zeroY-8)+'" font-size="9" fill="var(--accent)">↑ gap se abre</text>';
+  svg+='<text x="'+(W-pR+4)+'" y="'+(zeroY+14)+'" font-size="9" fill="var(--down)">↓ gap se cierra</text>';
+  const barW=Math.min(30,iW/(pts.length*1.8));
+  for(let j=0;j<pts.length;j++){const p=pts[j],x=xOf(p.i),y=yOf(p.vel),h=Math.abs(y-zeroY),color=p.vel>=0?'var(--accent)':'var(--down)',top=p.vel>=0?y:zeroY;
+    svg+='<rect x="'+(x-barW/2)+'" y="'+top+'" width="'+barW+'" height="'+Math.max(1,h)+'" fill="'+color+'" opacity="0.7"/>';
+    svg+='<rect class="vel-hit" x="'+(x-barW)+'" y="'+pT+'" width="'+(barW*2)+'" height="'+iH+'" fill="transparent" data-idx="'+j+'" style="cursor:crosshair"/>'}
+  svg+='<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#ccc"/><line x1="'+pL+'" y1="'+(H-pB)+'" x2="'+(W-pR)+'" y2="'+(H-pB)+'" stroke="#ccc"/>';
+  const step=Math.max(1,Math.floor(n/12));
+  for(let i=1;i<n;i++){const x=xOf(i);if(i%step===0||i===n-1)svg+='<text x="'+x+'" y="'+(H-pB+14)+'" text-anchor="middle" font-size="8" fill="#999">s'+i+'</text>'}
+  svg+='</svg>';
   document.getElementById('velChart').innerHTML=svg;
+  document.querySelectorAll('.vel-hit').forEach(function(h){
+    h.addEventListener('mouseenter',function(e){
+      const p=pts[+h.dataset.idx];
+      let html='<div class="th"><b>s'+(p.i-1)+'→s'+p.i+'</b> · '+p.hrs.toFixed(1)+'h · avance '+pct(p.avance)+'</div>';
+      html+='<div class="tr"><span>Δ gap 2°↔3°</span><span class="v" style="color:'+(p.dG>=0?'#8ab870':'#d88860')+'">'+(p.dG>=0?'+':'')+p.dG.toFixed(3)+'pp</span></div>';
+      html+='<div class="tr"><span>velocidad</span><span class="v"><b>'+(p.vel>=0?'+':'')+p.vel.toFixed(4)+'pp/h</b></span></div>';
+      html+='<div class="tr"><span>gap actual</span><span class="v">'+p.g1.toFixed(3)+'pp</span></div>';
+      html+='<div class="tr"><span>2° '+dname(p.who2).split(' ').pop()+' vs 3° '+dname(p.who3).split(' ').pop()+'</span></div>';
+      showTip(html,e)});
+    h.addEventListener('mousemove',function(e){moveTip(e)});
+    h.addEventListener('mouseleave',hideTip)});
 }
 
 function renderThresholds(){
-  const li=DB.snapshots.length-1;
-  const rk=natRanking(li);
-  const contenders=getContenders();
-  const av=DB.data[ROOT][li].av;
-  const vAct=rk.reduce((s,x)=>s+x.v,0);
-  const vPend=av>0?Math.round(vAct*((100-av)/av)):0;
-
-  const grid=document.getElementById('threshGrid');
-  let html='';
-
-  // For each contender, show what they need to overtake the one above
-  for(let i=0;i<contenders.length;i++){
-    const code=contenders[i];
-    const me=rk.find(x=>x.code===code);
-    const above=rk[me.pos-2]; // the one ranked above
-    if(!above)continue;
-    const gap=above.v-me.v;
-    const myPctNow=me.pct;
-
-    // What % of pending votes do I need to CLOSE the gap?
-    // If I get X% and the one above gets their current %, gap closes when:
-    // myVotes + X*vPend > aboveVotes + abovePct*vPend
-    // X*vPend - abovePct*vPend > gap
-    // X > (gap/vPend) + abovePct/100
-    // But simpler: just need gap votes more than proportional
-    // Threshold = what % of pending I need assuming above gets their current %
-    const abovePctPend=above.pct/100;
-    const myPctPend=me.pct/100;
-    const needed=vPend>0?(gap/vPend+abovePctPend)*100:999;
-    const currentRate=me.pct;
-    const surplus=currentRate-needed; // positive = on track at current rate
-
-    let verdictClass='',verdictText='';
-    if(needed>35){verdictClass='verdict-hard';verdictText=`muy difícil — necesita ${needed.toFixed(1)}% del voto pendiente vs ${currentRate.toFixed(1)}% actual`;}
-    else if(needed>currentRate*1.3){verdictClass='verdict-tight';verdictText=`alcanzable pero requiere mejorar significativamente sobre su ritmo actual`;}
-    else if(needed>currentRate){verdictClass='verdict-tight';verdictText=`apretado — necesita subir ligeramente sobre su ritmo actual (${currentRate.toFixed(1)}%)`;}
-    else{verdictClass='verdict-ok';verdictText=`a ritmo actual alcanzaría — pero depende de dónde vengan las actas`;}
-
-    const barPct=Math.min(100,needed);
-    const barColor=needed>currentRate*1.3?'var(--danger)':needed>currentRate?'var(--down)':'var(--accent)';
-
-    html+=`<div class="thresh-card">
-      <div class="tc-head"><span class="dot" style="background:${ccolor(code)}"></span><span class="tc-name">${dname(code)}</span><span class="tc-pos">${me.pos}° · ${me.pct.toFixed(3)}%</span></div>
-      <div class="tc-metric">
-        <div class="tc-label">para alcanzar a ${dname(above.code).split(' ').pop()} (${above.pos}°)</div>
-        <div class="tc-val">${needed.toFixed(1)}% <span style="font-size:11px;font-weight:400;color:var(--muted)">del voto pendiente</span></div>
-        <div class="tc-sub">cerrar brecha de <b>${fmt(gap)}</b> votos sobre ~${fmtS(vPend)} pendientes</div>
-        <div class="tc-bar-wrap"><div class="tc-bar" style="width:${barPct}%;background:${barColor}"></div></div>
-        <div class="tc-sub">ritmo actual: <b>${currentRate.toFixed(1)}%</b> · necesita: <b>${needed.toFixed(1)}%</b></div>
-      </div>
-      <div class="tc-verdict ${verdictClass}">${verdictText}</div>
-    </div>`;
-  }
-  grid.innerHTML=html;
+  const li=DB.snapshots.length-1,rk=natRanking(li),cont=getContenders(),av=DB.data[ROOT][li].av,vAct=rk.reduce(function(s,x){return s+x.v},0),vPend=av>0?Math.round(vAct*((100-av)/av)):0;
+  let h='';
+  for(const code of cont){const me=rk.find(function(x){return x.code===code}),above=rk[me.pos-2];if(!above)continue;const gap=above.v-me.v,needed=vPend>0?(gap/vPend+above.pct/100)*100:999,rate=me.pct;
+    let vc='',vt='';
+    if(needed>35){vc='v-hard';vt='muy difícil — necesita '+needed.toFixed(1)+'% del voto pendiente, tiene ritmo de '+rate.toFixed(1)+'%. tendría que más que triplicar su performance relativa.'}
+    else if(needed>rate*1.3){vc='v-tight';vt='alcanzable pero requiere mejorar significativamente. necesita '+needed.toFixed(1)+'% vs '+rate.toFixed(1)+'% actual. depende de dónde vengan las actas.'}
+    else if(needed>rate){vc='v-tight';vt='apretado — necesita '+needed.toFixed(1)+'% vs ritmo actual de '+rate.toFixed(1)+'%. una leve mejora o actas favorables bastarían.'}
+    else{vc='v-ok';vt='a ritmo actual ('+rate.toFixed(1)+'%) alcanzaría, ya que solo necesita '+needed.toFixed(1)+'%. pero depende de la composición territorial del voto restante.'}
+    h+='<div class="tc"><div class="tc-head"><span class="dot" style="background:'+ccolor(code)+'"></span><span class="tc-name">'+dname(code)+'</span><span class="tc-pos">'+me.pos+'° · '+me.pct.toFixed(3)+'%</span></div><div><div class="tc-label">para alcanzar a '+dname(above.code).split(' ').pop()+' ('+above.pos+'°)</div><div class="tc-val">'+needed.toFixed(1)+'% <span style="font-size:11px;font-weight:400;color:var(--muted)">del voto pendiente (~'+fmtS(vPend)+')</span></div><div class="tc-sub">cerrar brecha de <b>'+fmt(gap)+'</b> votos</div><div class="tc-bar-w"><div class="tc-bar" style="width:'+Math.min(100,needed)+'%;background:'+(needed>rate*1.3?'var(--danger)':needed>rate?'var(--down)':'var(--accent)')+'"></div></div><div class="tc-sub">necesita: <b>'+needed.toFixed(1)+'%</b> · ritmo actual: <b>'+rate.toFixed(1)+'%</b></div></div><div class="tc-verdict '+vc+'">'+vt+'</div></div>'}
+  document.getElementById('threshGrid').innerHTML=h;
 }
 
 function renderExtranjero(){
-  const li=DB.snapshots.length-1;
-  const contenders=getContenders();
-  const extNode=DB.nodes[EXT];
-  if(!extNode){document.getElementById('extGrid').innerHTML='<div style="color:var(--muted)">sin datos del extranjero</div>';return;}
-
-  const extD=DB.data[EXT][li];
-  document.getElementById('extMeta').textContent=`avance ${pct(extD.av)} · ${fmt(extD.cont)}/${fmt(extD.total)} actas`;
-
-  const continents=extNode.children||[];
-  let html='';
-  // add overall first
-  const allEntries=[{key:EXT,nombre:'TOTAL EXTRANJERO',isTotal:true},...continents.map(k=>({key:k,nombre:DB.nodes[k].nombre,isTotal:false}))];
-
-  for(const entry of allEntries){
-    const dd=DB.data[entry.key][li];
-    const tot=(() => {let s=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))s+=dd.votes[c];}return s;})();
-    const pend=dd.total-dd.cont;
-    // estimate pending votes
-    const vPend=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
-
-    html+=`<div class="ext-card" ${entry.isTotal?'style="border-left:3px solid var(--accent)"':''}>
-      <div class="ec-name">${entry.nombre.toLowerCase()}</div>
-      <div class="ec-av">avance ${pct(dd.av)} · ${fmt(pend)} actas pend. · ~${fmtS(vPend)} votos pend.</div>`;
-    // contender rows
-    const cRows=contenders.map(c=>({code:c,v:dd.votes[c]||0,pct:tot>0?(dd.votes[c]||0)/tot*100:0})).sort((a,b)=>b.v-a.v);
-    for(const r of cRows){
-      html+=`<div class="ec-row"><span><span class="dot" style="background:${ccolor(r.code)}"></span>${dname(r.code).split(' ').pop()}</span><span>${r.pct.toFixed(1)}% · ${fmtS(r.v)}</span></div>`;
-    }
-    html+=`</div>`;
-  }
-  document.getElementById('extGrid').innerHTML=html;
+  const li=DB.snapshots.length-1,cont=getContenders(),en=DB.nodes[EXT];
+  if(!en){document.getElementById('extGrid').innerHTML='<div style="color:var(--muted)">sin datos</div>';return}
+  const ed=DB.data[EXT][li];document.getElementById('extMeta').textContent='avance '+pct(ed.av)+' · '+fmt(ed.cont)+'/'+fmt(ed.total)+' actas';
+  const entries=[{key:EXT,nm:'TOTAL EXTRANJERO',isT:true}].concat((en.children||[]).map(function(k){return{key:k,nm:DB.nodes[k].nombre,isT:false}}));
+  let h='';
+  for(const e of entries){const dd=DB.data[e.key][li];let tot=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}const pend=dd.total-dd.cont,vP=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
+    h+='<div class="ec" '+(e.isT?'style="border-left:3px solid var(--accent)"':'')+'><div class="ec-nm">'+e.nm.toLowerCase()+'</div><div class="ec-av">avance '+pct(dd.av)+' · '+fmt(pend)+' actas pend. · ~'+fmtS(vP)+' votos pend.</div>';
+    const cr=cont.map(function(c){return{code:c,v:dd.votes[c]||0,pct:tot>0?(dd.votes[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
+    for(const r of cr)h+='<div class="ec-r"><span><span class="dot" style="background:'+ccolor(r.code)+'"></span>'+dname(r.code).split(' ').pop()+'</span><span>'+r.pct.toFixed(1)+'% · '+fmtS(r.v)+'</span></div>';
+    h+='</div>'}
+  document.getElementById('extGrid').innerHTML=h;
 }
 
+// TERRITORY sortable with beneficiary
+let terrSort={col:'vPend',dir:'desc'};
 function renderTerritory(){
-  const li=DB.snapshots.length-1;
-  const contenders=getContenders();
-  const deps=DB.nodes[ROOT].children;
-
-  const rows=[];
-  for(const k of deps){
-    const dd=DB.data[k][li];
-    const n=DB.nodes[k];
-    const tot=(()=>{let s=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))s+=dd.votes[c];}return s;})();
-    const pend=dd.total-dd.cont;
-    const vPend=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
-    const isExt=n.ambito===2||(n.ubigeo||'').startsWith('9');
-    // leader among contenders
-    const cVotes=contenders.map(c=>({code:c,v:dd.votes[c]||0})).sort((a,b)=>b.v-a.v);
-    const leader=cVotes[0];
-    const second=cVotes[1];
-    const leaderPct=tot>0?leader.v/tot*100:0;
-    const gapInDep=leader.v-second.v;
-
-    rows.push({key:k,nombre:n.nombre,isExt,av:dd.av,pend,vPend,leader:leader.code,leaderPct,gapInDep,second:second.code,tot,cVotes});
-  }
-
-  // default sort: most pending votes first
-  rows.sort((a,b)=>b.vPend-a.vPend);
-
-  let html=`<tr><th>departamento</th><th class="num">avance</th><th class="num">actas pend.</th><th class="num">votos pend. (est.)</th><th>líder contendientes</th><th class="num">gap interno</th>`;
-  for(const c of contenders)html+=`<th class="num" style="color:${ccolor(c)}">${dname(c).split(' ').pop()}</th>`;
-  html+=`</tr>`;
-
-  for(const r of rows){
-    html+=`<tr class="${r.isExt?'ext-row':''}">
-      <td>${r.nombre.toLowerCase()}</td>
-      <td class="num">${pct(r.av)}</td>
-      <td class="num">${fmt(r.pend)}</td>
-      <td class="num" style="color:var(--accent)">~${fmtS(r.vPend)}</td>
-      <td><span class="leader-bar" style="width:${Math.min(60,r.leaderPct)}px;background:${ccolor(r.leader)}"></span><span style="color:${ccolor(r.leader)}">${dname(r.leader).split(' ').pop()}</span> <span style="color:var(--muted);font-size:10px">${r.leaderPct.toFixed(1)}%</span></td>
-      <td class="num">${fmtS(r.gapInDep)}</td>`;
-    for(const c of contenders){
-      const cv=r.cVotes.find(x=>x.code===c);
-      const cpct=r.tot>0?cv.v/r.tot*100:0;
-      html+=`<td class="num">${cpct.toFixed(1)}%</td>`;
-    }
-    html+=`</tr>`;
-  }
-  document.getElementById('terrTbl').innerHTML=html;
+  const li=DB.snapshots.length-1,cont=getContenders(),deps=DB.nodes[ROOT].children,rows=[];
+  for(const k of deps){const dd=DB.data[k][li],nm=DB.nodes[k].nombre,isE=DB.nodes[k].ambito===2||(DB.nodes[k].ubigeo||'').startsWith('9');
+    let tot=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}
+    const pend=dd.total-dd.cont,vPend=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
+    const cv=cont.map(function(c){return{code:c,v:dd.votes[c]||0,pct:tot>0?(dd.votes[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
+    const leader=cv[0],second=cv[1];const projGains={};for(const c of cv)projGains[c.code]=Math.round(vPend*(c.pct/100));
+    const bestProj=cont.reduce(function(a,b){return(projGains[a]||0)>(projGains[b]||0)?a:b});
+    rows.push({k:k,nm:nm,isE:isE,av:dd.av,pend:pend,vPend:vPend,leader:leader.code,leaderPct:leader.pct,gap:leader.v-second.v,cv:cv,projGains:projGains,bestProj:bestProj,bestProjV:projGains[bestProj]||0})}
+  const s=terrSort;rows.sort(function(a,b){let va=a[s.col],vb=b[s.col];if(s.col==='nm'||s.col==='leader'||s.col==='bestProj'){va=typeof va==='string'?va:dname(va);vb=typeof vb==='string'?vb:dname(vb);return s.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va)}va=va||0;vb=vb||0;return s.dir==='asc'?va-vb:vb-va});
+  const arrow=function(c){return s.col!==c?'<span class="si">⇅</span>':s.dir==='desc'?'<span class="si act">▼</span>':'<span class="si act">▲</span>'};
+  let h='<tr><th data-c="nm">departamento '+arrow('nm')+'</th><th class="num" data-c="av">avance '+arrow('av')+'</th><th class="num" data-c="pend">actas pend. '+arrow('pend')+'</th><th class="num" data-c="vPend">votos pend. '+arrow('vPend')+'</th><th data-c="leader">líder '+arrow('leader')+'</th><th class="num" data-c="gap">gap int. '+arrow('gap')+'</th>';
+  for(const c of cont)h+='<th class="num" style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</th>';
+  h+='<th class="num" data-c="bestProjV">beneficiado '+arrow('bestProjV')+'</th></tr>';
+  for(const r of rows){h+='<tr class="'+(r.isE?'ext-row':'')+'"><td>'+r.nm.toLowerCase()+'</td><td class="num">'+pct(r.av)+'</td><td class="num">'+fmt(r.pend)+'</td><td class="num" style="color:var(--accent)">~'+fmtS(r.vPend)+'</td>';
+    h+='<td><span class="bar" style="width:'+Math.min(50,r.leaderPct)+'px;background:'+ccolor(r.leader)+'"></span><span style="color:'+ccolor(r.leader)+'">'+dname(r.leader).split(' ').pop()+'</span> <span style="color:var(--muted);font-size:10px">'+r.leaderPct.toFixed(1)+'%</span></td>';
+    h+='<td class="num">'+fmtS(r.gap)+'</td>';
+    for(const c of cont){const cv=r.cv.find(function(x){return x.code===c});h+='<td class="num">'+cv.pct.toFixed(1)+'%</td>'}
+    h+='<td class="num" style="color:'+ccolor(r.bestProj)+';font-weight:500">+'+fmtS(r.bestProjV)+' '+dname(r.bestProj).split(' ').pop()+'</td></tr>'}
+  document.getElementById('terrTbl').innerHTML=h;
+  document.querySelectorAll('#terrTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(terrSort.col===c)terrSort.dir=terrSort.dir==='desc'?'asc':'desc';else{terrSort.col=c;terrSort.dir=(c==='nm'||c==='leader'||c==='bestProj')?'asc':'desc'}renderTerritory()}});
 }
 
+// STRENGTHS with 2nd/3rd + projection
 function renderStrengths(){
-  const li=DB.snapshots.length-1;
-  const contenders=getContenders();
-  const deps=DB.nodes[ROOT].children;
-
-  // count departments where each contender leads
-  const leaderMap={};
-  for(const c of contenders)leaderMap[c]={count:0,depts:[],pendVotes:0};
-
-  for(const k of deps){
-    const dd=DB.data[k][li];
-    const tot=(()=>{let s=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))s+=dd.votes[c];}return s;})();
-    const pend=dd.total-dd.cont;
-    const vPend=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
-    const cVotes=contenders.map(c=>({code:c,v:dd.votes[c]||0})).sort((a,b)=>b.v-a.v);
-    const leader=cVotes[0].code;
-    if(leaderMap[leader]){
-      leaderMap[leader].count++;
-      leaderMap[leader].depts.push(DB.nodes[k].nombre);
-      leaderMap[leader].pendVotes+=vPend;
-    }
-  }
-
-  const sorted=contenders.map(c=>({code:c,...leaderMap[c]})).sort((a,b)=>b.count-a.count);
-
-  let html='<table class="mg-tbl"><tr><th>candidatx</th><th class="num">deptos donde lidera</th><th class="num">votos pend. en esos deptos</th><th>territorios</th></tr>';
+  const li=DB.snapshots.length-1,cont=getContenders(),deps=DB.nodes[ROOT].children;
+  const map={};for(const c of cont){map[c]={depts:[],totalProjSelf:0,totalProjOthers:{}};for(const c2 of cont)map[c].totalProjOthers[c2]=0}
+  for(const k of deps){const dd=DB.data[k][li],nm=DB.nodes[k].nombre;let tot=0;for(const c in dd.votes){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}
+    const pend=dd.total-dd.cont,vPend=dd.cont>0&&pend>0?Math.round(tot*pend/dd.cont):0;
+    const cv=cont.map(function(c){return{code:c,v:dd.votes[c]||0,pct:tot>0?(dd.votes[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
+    const leader=cv[0].code,second=cv[1]?cv[1].code:null,third=cv[2]?cv[2].code:null;
+    const projSelf=Math.round(vPend*(cv[0].pct/100));
+    map[leader].depts.push({nm:nm,leaderPct:cv[0].pct,second:second,secondPct:cv[1]?cv[1].pct:0,third:third,thirdPct:cv[2]?cv[2].pct:0,vPend:vPend,projSelf:projSelf});
+    map[leader].totalProjSelf+=projSelf;
+    for(const c of cv)map[leader].totalProjOthers[c.code]+=Math.round(vPend*(c.pct/100))}
+  const sorted=cont.map(function(c){return{code:c,depts:map[c].depts,totalProjSelf:map[c].totalProjSelf,totalProjOthers:map[c].totalProjOthers}}).sort(function(a,b){return b.depts.length-a.depts.length});
+  let h='';
   for(const r of sorted){
-    html+=`<tr>
-      <td><span style="display:inline-block;width:8px;height:8px;background:${ccolor(r.code)};margin-right:6px;vertical-align:middle"></span>${dname(r.code)}</td>
-      <td class="num"><b>${r.count}</b> / ${deps.length}</td>
-      <td class="num" style="color:var(--accent)">~${fmtS(r.pendVotes)}</td>
-      <td style="font-size:10px;color:var(--muted)">${r.depts.map(d=>d.toLowerCase().split(' ')[0]).join(', ')}</td>
-    </tr>`;
-  }
-  html+='</table>';
-  document.getElementById('strengthBody').innerHTML=html;
+    h+='<div style="margin-bottom:18px;border:1px solid var(--line);padding:12px 14px">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="display:inline-block;width:10px;height:10px;background:'+ccolor(r.code)+'"></span><span style="font-size:13px;font-weight:500">'+dname(r.code)+'</span><span style="font-size:11px;color:var(--muted)">lidera en '+r.depts.length+'/'+deps.length+' deptos</span></div>';
+    h+='<div style="font-size:11px;color:var(--muted);margin-bottom:8px">proyección pendientes en sus territorios: <b style="color:var(--accent)">~'+fmtS(r.totalProjSelf)+'</b> para '+dname(r.code).split(' ').pop();
+    const others=cont.filter(function(c){return c!==r.code}).map(function(c){return'<span style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+': ~'+fmtS(r.totalProjOthers[c])+'</span>'}).join(' · ');
+    h+=' · otros: '+others+'</div>';
+    h+='<table class="s-tbl"><tr><th>departamento</th><th class="num">% líder</th><th>2° contendiente</th><th class="num">%</th><th>3° contendiente</th><th class="num">%</th><th class="num">votos pend.</th><th class="num">proy. líder</th></tr>';
+    r.depts.sort(function(a,b){return b.vPend-a.vPend});
+    for(const d of r.depts){h+='<tr><td>'+d.nm.toLowerCase()+'</td><td class="num"><b>'+d.leaderPct.toFixed(1)+'%</b></td><td style="color:'+ccolor(d.second)+'">'+( d.second?dname(d.second).split(' ').pop():'—')+'</td><td class="num">'+d.secondPct.toFixed(1)+'%</td><td style="color:'+ccolor(d.third)+'">'+(d.third?dname(d.third).split(' ').pop():'—')+'</td><td class="num">'+d.thirdPct.toFixed(1)+'%</td><td class="num">~'+fmtS(d.vPend)+'</td><td class="num up">+'+fmtS(d.projSelf)+'</td></tr>'}
+    h+='</table></div>'}
+  document.getElementById('strengthBody').innerHTML=h;
 }
 
 function renderFlips(){
-  const n=DB.snapshots.length;
-  const contenders=getContenders();
-  if(n<2){document.getElementById('flipsBody').innerHTML='<div style="color:var(--muted)">necesita 2+ snapshots</div>';return;}
-
+  const n=DB.snapshots.length,cont=getContenders();
+  if(n<2){document.getElementById('flipsBody').innerHTML='<div style="color:var(--muted)">necesita 2+ snapshots</div>';return}
   const flips=[];
-  for(let i=1;i<n;i++){
-    const rk0=natRanking(i-1).filter(x=>contenders.includes(x.code));
-    const rk1=natRanking(i).filter(x=>contenders.includes(x.code));
-    // check position changes among contenders
-    for(const curr of rk1){
-      const prev=rk0.find(x=>x.code===curr.code);
-      if(!prev)continue;
-      const prevPos=rk0.indexOf(prev);
-      const currPos=rk1.indexOf(curr);
-      if(currPos<prevPos){
-        // this candidate moved up among contenders
-        const passed=rk0.filter((x,idx)=>idx<prevPos&&idx>=currPos);
-        for(const p of passed){
-          flips.push({
-            snap:i,
-            label:DB.snapshots[i].label,
-            avance:DB.snapshots[i].avance,
-            winner:curr.code,
-            loser:p.code,
-            winnerV:curr.v,
-            loserV:rk1.find(x=>x.code===p.code)?.v||0,
-            gap:curr.v-(rk1.find(x=>x.code===p.code)?.v||0)
-          });
-        }
-      }
-    }
-  }
-
-  if(flips.length===0){
-    document.getElementById('flipsBody').innerHTML='<div style="color:var(--muted);font-style:italic">sin cambios de posición entre contendientes en los snapshots disponibles</div>';
-    return;
-  }
-
-  let html='<table class="mg-tbl"><tr><th>snapshot</th><th>avance</th><th>evento</th><th class="num">gap resultante</th></tr>';
-  for(const f of flips){
-    html+=`<tr>
-      <td>s${f.snap} · ${f.label}</td>
-      <td>${pct(f.avance)}</td>
-      <td><span style="color:${ccolor(f.winner)};font-weight:500">${dname(f.winner)}</span> superó a <span style="color:${ccolor(f.loser)}">${dname(f.loser)}</span></td>
-      <td class="num">${fmtS(f.gap)} votos</td>
-    </tr>`;
-  }
-  html+='</table>';
-  document.getElementById('flipsBody').innerHTML=html;
+  for(let i=1;i<n;i++){const rk0=natRanking(i-1).filter(function(x){return cont.includes(x.code)}),rk1=natRanking(i).filter(function(x){return cont.includes(x.code)});
+    for(const curr of rk1){const prev=rk0.find(function(x){return x.code===curr.code});if(!prev)continue;const pp=rk0.indexOf(prev),cp=rk1.indexOf(curr);
+      if(cp<pp){const passed=rk0.filter(function(x,idx){return idx<pp&&idx>=cp});
+        for(const p of passed)flips.push({snap:i,label:DB.snapshots[i].label,avance:DB.snapshots[i].avance,winner:curr.code,loser:p.code,gap:curr.v-(rk1.find(function(x){return x.code===p.code})?.v||0),hrs:hoursBetween(i-1,i)})}}}
+  if(!flips.length){document.getElementById('flipsBody').innerHTML='<div style="color:var(--muted);font-style:italic;padding:10px">sin cambios de posición entre contendientes en los snapshots disponibles</div>';return}
+  let h='<table class="s-tbl"><tr><th>snapshot</th><th>avance</th><th>evento</th><th class="num">gap resultante</th><th class="num">intervalo</th></tr>';
+  for(const f of flips)h+='<tr><td>s'+f.snap+' · '+f.label+'</td><td>'+pct(f.avance)+'</td><td><span style="color:'+ccolor(f.winner)+';font-weight:500">'+dname(f.winner)+'</span> superó a <span style="color:'+ccolor(f.loser)+'">'+dname(f.loser)+'</span></td><td class="num">'+fmtS(f.gap)+' votos</td><td class="num">'+f.hrs.toFixed(1)+'h</td></tr>';
+  h+='</table>';document.getElementById('flipsBody').innerHTML=h;
 }
 
-// ============ BOOT ============
 async function boot(){
   const status=document.getElementById('status');
-  try{
-    const files=await discover();
-    status.textContent=`cargando ${files.length} snapshot(s)…`;
-    const results=await fetchAll(files);
-    DB=merge(results);
-    status.style.display='none';
-    document.getElementById('app').style.display='';
-
-    renderHero();
-    renderRanking();
-    renderGapChart();
-    renderMarginal();
-    renderVelocity();
-    renderThresholds();
-    renderExtranjero();
-    renderTerritory();
-    renderStrengths();
-    renderFlips();
-  }catch(err){
-    status.className='status err';
-    status.innerHTML=`<b>error:</b> ${err.message}`;
-  }
-}
+  try{const files=await discover();status.textContent='cargando '+files.length+' snapshot(s)…';const results=await fetchAll(files);DB=merge(results);status.style.display='none';document.getElementById('app').style.display='';
+    renderHero();renderRanking();renderGapChart();gapPbInit();renderMarginal();renderVelocity();renderThresholds();renderExtranjero();renderTerritory();renderStrengths();renderFlips();
+  }catch(err){status.className='status err';status.innerHTML='<b>error:</b> '+err.message}}
 boot();
 })();
 </script>

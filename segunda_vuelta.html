@@ -133,8 +133,9 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-si
     <div class="sec"><h2 class="sec-h">actas en jee · el voto "pendiente" está bajo disputa jurisdiccional <span class="meta" id="jeeMeta"></span></h2><div class="sec-body">
       <p class="sec-note">las actas que faltan para el 100% no están esperando conteo normal: todas están en el sistema del jurado electoral especial (jee). enviadas = ya recibidas, en resolución. pendientes = marcadas con problemas, aún no llegan. el "voto pendiente" puede ingresar al cómputo, ser anulado parcial o totalmente, o perderse según lo que resuelva cada jee regional. el ratio de cada contendiente en los territorios con más actas en disputa indica su exposición a ese resultado.</p>
       <div id="jeeSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:16px"></div>
-      <p class="sec-note" style="margin-top:0"><b>exposición por territorio:</b> click en headers para ordenar. "votos en juego" estima cuántos votos aportarían las actas en disputa si se procesaran al promedio del depto. "proy. líder" asume que el ratio actual se mantiene.</p>
+      <p class="sec-note" style="margin-top:0"><b>exposición por territorio:</b> click en headers para ordenar. "votos en juego" estima cuántos votos aportarían las actas en disputa si se procesaran al promedio del depto. las columnas "ganancia 1°/2°/3°" muestran cuántos votos recibiría cada contendiente según su posición ahí (las tres columnas son excluyentes: un contendiente aparece en solo una por territorio).</p>
       <table class="s-tbl" id="jeeTbl"></table>
+      <div id="jeeAgg"></div>
     </div></div>
     <div class="sec"><h2 class="sec-h">extranjero · factor decisivo <span class="meta" id="extMeta"></span></h2><div class="sec-body">
       <p class="sec-note">con más de la mitad de actas del extranjero sin procesar y lópez aliaga dominando con ~29% ahí (vs ~2% de sánchez), el exterior puede definir la carrera.</p>
@@ -256,21 +257,25 @@ function renderMarginal(){
   const n=DB.snapshots.length,cont=getContenders();
   document.getElementById('mgMeta').textContent=(n-1)+' intervalos';
   if(n<2){document.getElementById('mgBody').innerHTML='<div style="color:var(--muted)">necesita 2+ snapshots</div>';return}
-  let h='<table class="s-tbl"><tr><th>intervalo</th><th class="num">duración</th><th class="num">Δ avance</th><th class="num">votos nuevos</th>';
+  let h='<table class="s-tbl"><thead><tr><th>intervalo</th><th class="num">duración</th><th class="num">Δ avance</th><th class="num">votos nuevos</th>';
   for(const c of cont)h+='<th class="num"><span style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</span></th>';
-  h+='<th class="num">gana marginal</th><th class="num">ritmo gap 2°↔3°</th></tr>';
+  h+='<th class="num">gana marginal</th><th class="num">ritmo gap 2°↔3°</th></tr></thead><tbody>';
   const start=Math.max(0,n-9);
+  const mgTot={hrs:0,avD:0,nv:0,byC:{}};for(const c of cont)mgTot.byC[c]=0;
   for(let i=n-1;i>=start+1;i--){
     const p=i-1,hrs=hoursBetween(p,i),avD=DB.snapshots[i].avance-DB.snapshots[p].avance;
     const tP=totalValid(ROOT,p),tC=totalValid(ROOT,i),nv=tC-tP;
     const deltas=cont.map(function(c){return votesAt(ROOT,c,i)-votesAt(ROOT,c,p)});
     const maxD=Math.max.apply(null,deltas),wi=deltas.indexOf(maxD),wc=cont[wi];
     const rk0=natRanking(p),rk1=natRanking(i),g0=rk0[1].v-rk0[2].v,g1=rk1[1].v-rk1[2].v,dG=g1-g0,dGhr=hrs>0?dG/hrs:0;
+    mgTot.hrs+=hrs;mgTot.avD+=avD;mgTot.nv+=nv;for(let j=0;j<cont.length;j++)mgTot.byC[cont[j]]+=deltas[j];
     h+='<tr><td>s'+p+'→s'+i+'</td><td class="num">'+hrs.toFixed(1)+'h</td><td class="num">+'+avD.toFixed(3)+'pp</td><td class="num">'+fmtS(nv)+'</td>';
     for(let j=0;j<cont.length;j++){const d=deltas[j],pn=nv>0?(d/nv*100).toFixed(1)+'%':'—';h+='<td class="num '+(j===wi?'up':'')+'">'+(d>0?'+':'')+fmtS(d)+' <span style="color:var(--muted);font-size:9px">('+pn+')</span></td>'}
     h+='<td class="num" style="color:'+ccolor(wc)+';font-weight:500">'+dname(wc).split(' ').pop()+'</td>';
     h+='<td class="num '+(dG>0?'up':'dn')+'">'+(dG>0?'+':'')+fmtS(dG)+' <span style="font-size:9px;color:var(--muted)">'+(dGhr>0?'+':'')+Math.round(dGhr)+'/h</span></td></tr>'}
-  h+='</table>';
+  h+='</tbody><tfoot><tr style="background:#f6f9ef;border-top:2px solid var(--accent);font-weight:500"><td>total ('+(n-1-start)+' intervalos)</td><td class="num">'+mgTot.hrs.toFixed(1)+'h</td><td class="num">+'+mgTot.avD.toFixed(3)+'pp</td><td class="num"><b>'+fmtS(mgTot.nv)+'</b></td>';
+  for(const c of cont){const d=mgTot.byC[c],pn=mgTot.nv>0?(d/mgTot.nv*100).toFixed(1)+'%':'—';h+='<td class="num"><b>'+(d>0?'+':'')+fmtS(d)+'</b> <span style="color:var(--muted);font-size:9px">('+pn+')</span></td>'}
+  h+='<td class="num">—</td><td class="num">—</td></tr></tfoot></table>';
   document.getElementById('mgBody').innerHTML=h;
   // ORIGIN last 4 snapshots
   const i0=Math.max(0,n-5),i1=n-1,hrs=hoursBetween(i0,i1),deps=DB.nodes[ROOT].children;
@@ -279,14 +284,24 @@ function renderMarginal(){
   depD.sort(function(a,b){return b.tn-a.tn});
   const top8=depD.filter(function(d){return d.tn>0}).slice(0,8);
   let oh='<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px">origen de votos · últimos '+(n-1-i0+1)+' snapshots (s'+i0+'→s'+i1+', '+hrs.toFixed(1)+'h)</div>';
-  oh+='<table class="s-tbl"><tr><th>territorio</th><th class="num">votos nuevos</th><th class="num">Δ avance</th>';
+  oh+='<table class="s-tbl"><thead><tr><th>territorio</th><th class="num">votos nuevos</th><th class="num">Δ avance</th>';
   for(const c of cont)oh+='<th class="num" style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</th>';
-  oh+='<th>beneficia a</th></tr>';
+  oh+='<th>beneficia a</th></tr></thead><tbody>';
+  const ogTot={tn:0,byC:{}};for(const c of cont)ogTot.byC[c]=0;
   for(const d of top8){const best=cont.reduce(function(a,b){return d.cd[a]>d.cd[b]?a:b});
+    ogTot.tn+=d.tn;for(const c of cont)ogTot.byC[c]+=d.cd[c];
     oh+='<tr><td>'+d.nm.toLowerCase()+'</td><td class="num">'+fmtS(d.tn)+'</td><td class="num">+'+d.avD.toFixed(1)+'pp</td>';
     for(const c of cont)oh+='<td class="num">'+(d.cd[c]>0?'+':'')+fmtS(d.cd[c])+'</td>';
     oh+='<td style="color:'+ccolor(best)+';font-weight:500">'+dname(best).split(' ').pop()+'</td></tr>'}
-  oh+='</table></div>';
+  // National totals (all territories, not just top 8) for the same interval
+  const ogNat={tn:0,byC:{}};for(const c of cont)ogNat.byC[c]=0;
+  for(const d of depD){ogNat.tn+=d.tn;for(const c of cont)ogNat.byC[c]+=d.cd[c]}
+  oh+='</tbody><tfoot><tr style="background:#f6f9ef;border-top:1px solid var(--accent);font-weight:500"><td>top 8 (suma)</td><td class="num"><b>'+fmtS(ogTot.tn)+'</b></td><td class="num">—</td>';
+  for(const c of cont)oh+='<td class="num"><b>'+(ogTot.byC[c]>0?'+':'')+fmtS(ogTot.byC[c])+'</b></td>';
+  oh+='<td>—</td></tr>';
+  oh+='<tr style="background:#f6f9ef;border-top:2px solid var(--accent);font-weight:500"><td>total nacional (intervalo)</td><td class="num"><b>'+fmtS(ogNat.tn)+'</b></td><td class="num">—</td>';
+  for(const c of cont){const d=ogNat.byC[c],pn=ogNat.tn>0?(d/ogNat.tn*100).toFixed(1)+'%':'—';oh+='<td class="num"><b>'+(d>0?'+':'')+fmtS(d)+'</b> <span style="color:var(--muted);font-size:9px">('+pn+')</span></td>'}
+  oh+='<td>—</td></tr></tfoot></table></div>';
   document.getElementById('mgOrigin').innerHTML=oh;
 }
 
@@ -432,19 +447,46 @@ function renderJEE(){
     const cr=cont.map(function(c){return{code:c,v:(dd.votes||{})[c]||0,pct:tot>0?((dd.votes||{})[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
     const votesPerActa=dd.cont>0?tot/dd.cont:0;
     const votosEnJuego=Math.round(votesPerActa*d.tot);
-    const leaderGain=cr[0]?Math.round(votosEnJuego*cr[0].pct/100):0;
-    rows.push({nm:d.nm,k:d.k,jeeE:d.jeeE,jeeP:d.jeeP,jeeTot:d.tot,pctDep:d.total>0?d.tot/d.total*100:0,leader:cr[0]?cr[0].code:null,leaderPct:cr[0]?cr[0].pct:0,votosEnJuego:votosEnJuego,leaderGain:leaderGain});
+    const g1=cr[0]?Math.round(votosEnJuego*cr[0].pct/100):0;
+    const g2=cr[1]?Math.round(votosEnJuego*cr[1].pct/100):0;
+    const g3=cr[2]?Math.round(votosEnJuego*cr[2].pct/100):0;
+    rows.push({nm:d.nm,k:d.k,jeeE:d.jeeE,jeeP:d.jeeP,jeeTot:d.tot,pctDep:d.total>0?d.tot/d.total*100:0,p1:cr[0]?cr[0].code:null,p1Pct:cr[0]?cr[0].pct:0,p2:cr[1]?cr[1].code:null,p2Pct:cr[1]?cr[1].pct:0,p3:cr[2]?cr[2].code:null,p3Pct:cr[2]?cr[2].pct:0,votosEnJuego:votosEnJuego,g1:g1,g2:g2,g3:g3});
   }
   const sc=jeeSort.col,sd=jeeSort.dir==='desc'?-1:1;
   rows.sort(function(a,b){const av=a[sc]==null?-Infinity:a[sc],bv=b[sc]==null?-Infinity:b[sc];if(typeof av==='string')return av.localeCompare(bv)*sd;return (av-bv)*sd});
   const arr=function(c){return sc===c?(sd<0?' ↓':' ↑'):''};
-  let h='<thead><tr><th data-c="nm">territorio'+arr('nm')+'</th><th data-c="jeeE" class="r">enviadas jee'+arr('jeeE')+'</th><th data-c="jeeP" class="r">pendientes jee'+arr('jeeP')+'</th><th data-c="jeeTot" class="r">total en disputa'+arr('jeeTot')+'</th><th data-c="pctDep" class="r">% del depto'+arr('pctDep')+'</th><th data-c="leader">líder ahí'+arr('leader')+'</th><th data-c="votosEnJuego" class="r">votos en juego'+arr('votosEnJuego')+'</th><th data-c="leaderGain" class="r">proy. líder si se resuelve'+arr('leaderGain')+'</th></tr></thead><tbody>';
+  const gainCell=function(code,pct,gain){return code?'<span style="color:var(--muted);font-size:10px">'+dname(code).split(' ').pop()+' '+pct.toFixed(1)+'%</span> <b>+'+fmtS(gain)+'</b>':'—'};
+  let h='<thead><tr><th data-c="nm">territorio'+arr('nm')+'</th><th data-c="jeeE" class="r">enviadas jee'+arr('jeeE')+'</th><th data-c="jeeP" class="r">pendientes jee'+arr('jeeP')+'</th><th data-c="jeeTot" class="r">total en disputa'+arr('jeeTot')+'</th><th data-c="pctDep" class="r">% del depto'+arr('pctDep')+'</th><th data-c="votosEnJuego" class="r">votos en juego'+arr('votosEnJuego')+'</th><th data-c="g1" class="r">ganancia 1°'+arr('g1')+'</th><th data-c="g2" class="r">ganancia 2°'+arr('g2')+'</th><th data-c="g3" class="r">ganancia 3°'+arr('g3')+'</th></tr></thead><tbody>';
   for(const r of rows){
-    h+='<tr><td>'+r.nm.toLowerCase()+'</td><td class="r">'+fmt(r.jeeE)+'</td><td class="r">'+fmt(r.jeeP)+'</td><td class="r"><b>'+fmt(r.jeeTot)+'</b></td><td class="r">'+r.pctDep.toFixed(2)+'%</td><td>'+(r.leader?'<span class="dot" style="background:'+ccolor(r.leader)+'"></span>'+dname(r.leader).split(' ').pop()+' <span style="color:var(--muted)">'+r.leaderPct.toFixed(1)+'%</span>':'—')+'</td><td class="r">'+fmtS(r.votosEnJuego)+'</td><td class="r">+'+fmtS(r.leaderGain)+'</td></tr>';
+    h+='<tr><td>'+r.nm.toLowerCase()+'</td><td class="r">'+fmt(r.jeeE)+'</td><td class="r">'+fmt(r.jeeP)+'</td><td class="r"><b>'+fmt(r.jeeTot)+'</b></td><td class="r">'+r.pctDep.toFixed(2)+'%</td><td class="r">'+fmtS(r.votosEnJuego)+'</td><td class="r">'+gainCell(r.p1,r.p1Pct,r.g1)+'</td><td class="r">'+gainCell(r.p2,r.p2Pct,r.g2)+'</td><td class="r">'+gainCell(r.p3,r.p3Pct,r.g3)+'</td></tr>';
   }
-  h+='</tbody>';
+  // Totals row: sum gains across all territories by ORDINAL position (not by candidate)
+  // Plus: aggregated by CANDIDATE (who accumulates most across all territories as 1°/2°/3°)
+  const sumJeeE=rows.reduce(function(s,r){return s+r.jeeE},0);
+  const sumJeeP=rows.reduce(function(s,r){return s+r.jeeP},0);
+  const sumJeeTot=rows.reduce(function(s,r){return s+r.jeeTot},0);
+  const sumVotosJuego=rows.reduce(function(s,r){return s+r.votosEnJuego},0);
+  const sumG1=rows.reduce(function(s,r){return s+r.g1},0);
+  const sumG2=rows.reduce(function(s,r){return s+r.g2},0);
+  const sumG3=rows.reduce(function(s,r){return s+r.g3},0);
+  h+='<tfoot><tr style="background:#f6f9ef;border-top:2px solid var(--accent);font-weight:500"><td>TOTAL ('+rows.length+' territorios)</td><td class="r">'+fmt(sumJeeE)+'</td><td class="r">'+fmt(sumJeeP)+'</td><td class="r"><b>'+fmt(sumJeeTot)+'</b></td><td class="r">—</td><td class="r"><b>'+fmtS(sumVotosJuego)+'</b></td><td class="r"><b>+'+fmtS(sumG1)+'</b></td><td class="r"><b>+'+fmtS(sumG2)+'</b></td><td class="r"><b>+'+fmtS(sumG3)+'</b></td></tr></tfoot>';
   document.getElementById('jeeTbl').innerHTML=h;
-  document.querySelectorAll('#jeeTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(jeeSort.col===c)jeeSort.dir=jeeSort.dir==='desc'?'asc':'desc';else{jeeSort.col=c;jeeSort.dir=(c==='nm'||c==='leader')?'asc':'desc'}renderJEE()}});
+  // Build candidate-level aggregation: for each contendiente, how many votes accumulate if ALL jee actas resolve at current ratios
+  const candAgg={};for(const c of cont)candAgg[c]={total:0,asLeader:0,asSecond:0,asThird:0,territories1:0,territories2:0,territories3:0};
+  for(const r of rows){
+    if(r.p1&&candAgg[r.p1]){candAgg[r.p1].asLeader+=r.g1;candAgg[r.p1].total+=r.g1;candAgg[r.p1].territories1++}
+    if(r.p2&&candAgg[r.p2]){candAgg[r.p2].asSecond+=r.g2;candAgg[r.p2].total+=r.g2;candAgg[r.p2].territories2++}
+    if(r.p3&&candAgg[r.p3]){candAgg[r.p3].asThird+=r.g3;candAgg[r.p3].total+=r.g3;candAgg[r.p3].territories3++}
+  }
+  const candRows=cont.map(function(c){return{code:c,nm:dname(c),agg:candAgg[c]}}).sort(function(a,b){return b.agg.total-a.agg.total});
+  let ah='<div style="margin-top:20px"><p class="sec-note"><b>exposición acumulada por contendiente:</b> si todas las actas en disputa se resolvieran al ratio actual de cada depto, estos son los votos que cada contendiente acumularía en el total nacional según en qué posición lidere/segundo/tercero salga en cada territorio.</p>';
+  ah+='<table class="s-tbl"><thead><tr><th>contendiente</th><th class="r">como 1° (territ.)</th><th class="r">como 2° (territ.)</th><th class="r">como 3° (territ.)</th><th class="r">total proyectado</th></tr></thead><tbody>';
+  for(const cr of candRows){
+    ah+='<tr><td><span class="dot" style="background:'+ccolor(cr.code)+'"></span>'+cr.nm.toLowerCase()+'</td><td class="r">+'+fmtS(cr.agg.asLeader)+' <span style="color:var(--muted);font-size:10px">('+cr.agg.territories1+')</span></td><td class="r">+'+fmtS(cr.agg.asSecond)+' <span style="color:var(--muted);font-size:10px">('+cr.agg.territories2+')</span></td><td class="r">+'+fmtS(cr.agg.asThird)+' <span style="color:var(--muted);font-size:10px">('+cr.agg.territories3+')</span></td><td class="r"><b>+'+fmtS(cr.agg.total)+'</b></td></tr>';
+  }
+  ah+='</tbody></table></div>';
+  document.getElementById('jeeAgg').innerHTML=ah;
+  document.querySelectorAll('#jeeTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(jeeSort.col===c)jeeSort.dir=jeeSort.dir==='desc'?'asc':'desc';else{jeeSort.col=c;jeeSort.dir=(c==='nm')?'asc':'desc'}renderJEE()}});
 }
 
 function renderExtranjero(){
@@ -474,14 +516,26 @@ function renderTerritory(){
     rows.push({k:k,nm:nm,isE:isE,av:dd.av,pend:pend,vPend:vPend,leader:leader.code,leaderPct:leader.pct,gap:leader.v-second.v,cv:cv,projGains:projGains,bestProj:bestProj,bestProjV:projGains[bestProj]||0})}
   const s=terrSort;rows.sort(function(a,b){let va=a[s.col],vb=b[s.col];if(s.col==='nm'||s.col==='leader'||s.col==='bestProj'){va=typeof va==='string'?va:dname(va);vb=typeof vb==='string'?vb:dname(vb);return s.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va)}va=va||0;vb=vb||0;return s.dir==='asc'?va-vb:vb-va});
   const arrow=function(c){return s.col!==c?'<span class="si">⇅</span>':s.dir==='desc'?'<span class="si act">▼</span>':'<span class="si act">▲</span>'};
-  let h='<tr><th data-c="nm">departamento '+arrow('nm')+'</th><th class="num" data-c="av">avance '+arrow('av')+'</th><th class="num" data-c="pend">actas pend. '+arrow('pend')+'</th><th class="num" data-c="vPend">votos pend. '+arrow('vPend')+'</th><th data-c="leader">líder '+arrow('leader')+'</th><th class="num" data-c="gap">gap int. '+arrow('gap')+'</th>';
+  let h='<thead><tr><th data-c="nm">departamento '+arrow('nm')+'</th><th class="num" data-c="av">avance '+arrow('av')+'</th><th class="num" data-c="pend">actas pend. '+arrow('pend')+'</th><th class="num" data-c="vPend">votos pend. '+arrow('vPend')+'</th><th data-c="leader">líder '+arrow('leader')+'</th><th class="num" data-c="gap">gap int. '+arrow('gap')+'</th>';
   for(const c of cont)h+='<th class="num" style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</th>';
-  h+='<th class="num" data-c="bestProjV">beneficiado '+arrow('bestProjV')+'</th></tr>';
-  for(const r of rows){h+='<tr class="'+(r.isE?'ext-row':'')+'"><td>'+r.nm.toLowerCase()+'</td><td class="num">'+pct(r.av)+'</td><td class="num">'+fmt(r.pend)+'</td><td class="num" style="color:var(--accent)">~'+fmtS(r.vPend)+'</td>';
+  h+='<th class="num" data-c="bestProjV">beneficiado '+arrow('bestProjV')+'</th></tr></thead><tbody>';
+  const trTot={pend:0,vPend:0,byC:{},benef:{}};for(const c of cont){trTot.byC[c]=0;trTot.benef[c]=0}
+  for(const r of rows){
+    trTot.pend+=r.pend;trTot.vPend+=r.vPend;
+    for(const c of cont)trTot.byC[c]+=(r.projGains[c]||0);
+    trTot.benef[r.bestProj]=(trTot.benef[r.bestProj]||0)+r.bestProjV;
+    h+='<tr class="'+(r.isE?'ext-row':'')+'"><td>'+r.nm.toLowerCase()+'</td><td class="num">'+pct(r.av)+'</td><td class="num">'+fmt(r.pend)+'</td><td class="num" style="color:var(--accent)">~'+fmtS(r.vPend)+'</td>';
     h+='<td><span class="bar" style="width:'+Math.min(50,r.leaderPct)+'px;background:'+ccolor(r.leader)+'"></span><span style="color:'+ccolor(r.leader)+'">'+dname(r.leader).split(' ').pop()+'</span> <span style="color:var(--muted);font-size:10px">'+r.leaderPct.toFixed(1)+'%</span></td>';
     h+='<td class="num">'+fmtS(r.gap)+'</td>';
     for(const c of cont){const cv=r.cv.find(function(x){return x.code===c});h+='<td class="num">'+cv.pct.toFixed(1)+'%</td>'}
     h+='<td class="num" style="color:'+ccolor(r.bestProj)+';font-weight:500">+'+fmtS(r.bestProjV)+' '+dname(r.bestProj).split(' ').pop()+'</td></tr>'}
+  // Footer: totals across all territories
+  h+='</tbody><tfoot><tr style="background:#f6f9ef;border-top:2px solid var(--accent);font-weight:500"><td>total ('+rows.length+' territorios)</td><td class="num">—</td><td class="num"><b>'+fmt(trTot.pend)+'</b></td><td class="num" style="color:var(--accent)"><b>~'+fmtS(trTot.vPend)+'</b></td><td>—</td><td class="num">—</td>';
+  for(const c of cont){const v=trTot.byC[c],pn=trTot.vPend>0?(v/trTot.vPend*100).toFixed(1)+'%':'—';h+='<td class="num"><b>+'+fmtS(v)+'</b> <span style="color:var(--muted);font-size:9px">('+pn+')</span></td>'}
+  // benef column shows sum of gains from territories where each is the beneficiary
+  const benefOrder=cont.slice().sort(function(a,b){return (trTot.benef[b]||0)-(trTot.benef[a]||0)});
+  const top=benefOrder[0];
+  h+='<td class="num" style="color:'+ccolor(top)+';font-weight:500">+'+fmtS(trTot.benef[top]||0)+' '+dname(top).split(' ').pop()+'</td></tr></tfoot>';
   document.getElementById('terrTbl').innerHTML=h;
   document.querySelectorAll('#terrTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(terrSort.col===c)terrSort.dir=terrSort.dir==='desc'?'asc':'desc';else{terrSort.col=c;terrSort.dir=(c==='nm'||c==='leader'||c==='bestProj')?'asc':'desc'}renderTerritory()}});
 }

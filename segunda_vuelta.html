@@ -36,7 +36,8 @@ h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .sec{border:1px solid var(--line);background:#fff;margin-bottom:18px}
 .sec-h{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .sec-h .meta{font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint);font-size:11px}
-.sec-body{padding:14px}
+.sec-body{padding:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+th[role="button"]:focus-visible,th[tabindex="0"]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .sec-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
 .rank-tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
 .rank-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em}
@@ -68,7 +69,8 @@ h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .tip .tr .v{text-align:right;font-variant-numeric:tabular-nums}
 .s-tbl{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
 .s-tbl th{text-align:left;font-weight:500;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--line-s);font-size:9px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
-.s-tbl th:hover{color:var(--fg)}
+.s-tbl th:hover,.s-tbl th:focus{color:var(--fg);outline:none}
+.s-tbl th[aria-sort="ascending"],.s-tbl th[aria-sort="descending"]{color:var(--accent)}
 .s-tbl th.num{text-align:right}
 .s-tbl td{padding:4px 6px;border-bottom:1px solid var(--line)}
 .s-tbl td.num{text-align:right}
@@ -78,6 +80,19 @@ h1{font-size:19px;font-weight:500;margin:0 0 2px;letter-spacing:-.01em}
 .s-tbl .si.act{color:var(--accent)}
 .s-tbl .bar{display:inline-block;height:5px;vertical-align:middle;margin-right:3px}
 .s-tbl .ext-row{border-left:2px dashed var(--muted)}
+.sec-body{overflow-x:auto}
+.sec-body>.s-tbl,.sec-body>#jeeAgg,.sec-body>#strengthBody{min-width:100%}
+.methodology summary:hover{color:var(--fg)}
+.methodology summary:focus{outline:2px solid var(--accent);outline-offset:-2px}
+.methodology[open] summary{border-bottom:1px solid var(--line);margin-bottom:12px}
+.methodology code{background:#fafaf7;padding:1px 5px;border:1px solid var(--line);font-size:10px}
+@media(max-width:700px){
+  .hero{grid-template-columns:1fr !important}
+  .ext-grid,.thresh-grid{grid-template-columns:1fr !important}
+  #jeeSummary{grid-template-columns:1fr 1fr !important}
+  h1{font-size:16px}
+  .chart-box svg{min-width:700px}
+}
 .thresh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
 .tc{background:#fff;padding:14px 16px}
 .tc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -133,7 +148,13 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-si
     <div class="sec"><h2 class="sec-h">actas en jee · el voto "pendiente" está bajo disputa jurisdiccional <span class="meta" id="jeeMeta"></span></h2><div class="sec-body">
       <p class="sec-note">las actas que faltan para el 100% no están esperando conteo normal: todas están en el sistema del jurado electoral especial (jee). enviadas = ya recibidas, en resolución. pendientes = marcadas con problemas, aún no llegan. el "voto pendiente" puede ingresar al cómputo, ser anulado parcial o totalmente, o perderse según lo que resuelva cada jee regional. el ratio de cada contendiente en los territorios con más actas en disputa indica su exposición a ese resultado.</p>
       <div id="jeeSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:16px"></div>
-      <p class="sec-note" style="margin-top:0"><b>exposición por territorio:</b> click en headers para ordenar. "votos en juego" estima cuántos votos aportarían las actas en disputa si se procesaran al promedio del depto. las columnas "ganancia 1°/2°/3°" muestran cuántos votos recibiría cada contendiente según su posición ahí (las tres columnas son excluyentes: un contendiente aparece en solo una por territorio).</p>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fafaf7;border:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap">
+        <label for="jeeFactor" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:500">factor de resolución jee</label>
+        <input type="range" id="jeeFactor" min="0" max="100" value="100" step="5" style="flex:1;min-width:200px;accent-color:var(--accent)" aria-label="factor de resolución JEE (porcentaje de actas que se esperan procesar)">
+        <span id="jeeFactorLbl" style="font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;min-width:60px">100%</span>
+        <span style="font-size:10px;color:var(--muted);flex-basis:100%;line-height:1.4">escenario: qué porcentaje de las actas en JEE se resolverían favorablemente y entrarían al cómputo. 100% = techo optimista (todas entran). 50% = la mitad se anulan. 0% = todas se anulan. la tabla y las proyecciones se recalculan.</span>
+      </div>
+      <p class="sec-note" style="margin-top:0"><b>exposición por territorio:</b> click en headers para ordenar. "votos en juego" estima cuántos votos aportarían las actas en disputa si se procesaran al promedio del depto, ajustado por el factor de resolución. las columnas "ganancia 1°/2°/3°" muestran cuántos votos recibiría cada contendiente según su posición ahí (las tres columnas son excluyentes: un contendiente aparece en solo una por territorio).</p>
       <table class="s-tbl" id="jeeTbl"></table>
       <div id="jeeAgg"></div>
     </div></div>
@@ -150,6 +171,28 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-si
       <div id="strengthBody"></div>
     </div></div>
     <div class="sec"><h2 class="sec-h">cronología de flips · cambios de posición entre contendientes</h2><div class="sec-body" id="flipsBody"></div></div>
+    <details class="sec methodology" style="margin-top:20px">
+      <summary style="cursor:pointer;padding:12px 14px;background:#fafaf7;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);user-select:none">metodología y advertencias · cómo se calculan las proyecciones</summary>
+      <div class="sec-body" style="font-size:12px;line-height:1.7">
+        <p><b>contendientes al 2° puesto.</b> se define como los cuatro candidatos con más votos nacionales después de Keiko Fujimori (que consolidó 1° con ~17%). a la fecha del último snapshot son Sánchez (JP), López Aliaga (RP), Nieto (Ahora) y Belmont (PCO).</p>
+        <p><b>gap entre puestos.</b> diferencia absoluta de votos válidos entre dos posiciones consecutivas del ranking nacional. también se expresa en puntos porcentuales (pp) sobre el total de votos válidos.</p>
+        <p><b>votos pendientes estimados.</b> para cada territorio: <code>votos_actuales × (actas_pendientes / actas_contabilizadas)</code>. es una proyección lineal que asume que las actas que faltan producirán votos al ritmo promedio del depto. <b>importante:</b> en el estado actual (~93% avance) las actas "pendientes" son en su totalidad actas del sistema JEE (impugnadas o por resolver), no actas de conteo normal. la proyección es un <i>techo</i>, no un valor esperado — parte de esas actas pueden ser anuladas parcial o totalmente.</p>
+        <p><b>proyección de ganancia por contendiente.</b> se aplica el porcentaje actual de cada contendiente en cada depto al estimado de votos pendientes de ese depto: <code>votos_pendientes_depto × (porcentaje_contendiente_depto / 100)</code>. asume que el ratio se mantiene constante, lo cual es razonable cuando el avance ya es alto (&gt;90%) pero introduce error si los votos restantes tienen composición distinta.</p>
+        <p><b>ganancia 1° / 2° / 3° (tabla JEE).</b> misma fórmula aplicada a las actas en disputa JEE. las tres columnas son excluyentes: un contendiente aparece en solo una de ellas por territorio, según su posición relativa entre los cuatro contendientes en ese depto.</p>
+        <p><b>regresión lineal de la trayectoria del gap.</b> sobre los últimos 5 snapshots (o menos si hay menos disponibles) se ajusta una recta <code>gap = slope × avance + intercept</code> por mínimos cuadrados y se extrapola al 100% de avance. es una proyección de tendencia reciente, no un modelo estructural del comportamiento del electorado. si el conteo se acelera o desacelera la extrapolación se vuelve ruidosa.</p>
+        <p><b>umbrales de quiebre.</b> calcula qué porcentaje del voto pendiente necesitaría cada contendiente para alcanzar al de arriba, asumiendo que el rival mantiene su ritmo actual. si el porcentaje requerido supera 35%, se clasifica como "muy difícil"; si supera 1.3× el ritmo actual del contendiente, como "apretado"; si es menor o igual al ritmo actual, como "alcanzable".</p>
+        <p><b>actas JEE.</b> el sistema reporta dos campos: <code>enviadasJee</code> (actas ya en el jurado electoral, en proceso de resolución) y <code>pendientesJee</code> (actas marcadas con problemas pero aún no remitidas). su suma + actas contabilizadas siempre iguala el total del territorio. son procesos jurisdiccionales que pueden terminar con resolución favorable (acta se procesa), anulación parcial, o anulación total.</p>
+        <p><b>fuente de datos.</b> ONPE (endpoints <code>/app/elecciones/resultadosPRPExt/R/T/*</code>), scraping periódico. cada snapshot contiene contabilizadas, avance y votos por candidato para cada uno de los ~2,400 nodos territoriales del árbol. los campos JEE se incorporaron a partir del snapshot del 16 abr 2026. la recencia de actualización depende de la frecuencia del scraping manual.</p>
+        <p><b>qué NO hace este informe.</b> no predice el resultado final con margen de error probabilístico (no hay modelo estocástico, solo proyecciones lineales determinísticas). no incorpora resoluciones JEE específicas (no hay API pública por acta). no estima efectos de campaña o eventos exógenos entre snapshots. no sustituye el cómputo oficial.</p>
+      </div>
+    </details>
+    <div class="sec" style="margin-top:10px">
+      <div class="sec-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 14px">
+        <button id="exportCsv" style="font-family:inherit;font-size:11px;padding:6px 14px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);cursor:pointer">↓ exportar CSV · último snapshot por depto</button>
+        <button id="exportJson" style="font-family:inherit;font-size:11px;padding:6px 14px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);cursor:pointer">↓ exportar JSON · análisis completo</button>
+        <span style="color:var(--muted);font-size:11px">para verificación y análisis independiente</span>
+      </div>
+    </div>
   </div>
   <div class="tip" id="tip"></div>
   <footer>onpe · informe segunda vuelta · <a href="https://cztpe.github.io/conteoONPE/">dashboard principal</a> · carlos zevallos trigoso · pucp · abril 2026</footer>
@@ -426,11 +469,13 @@ function renderThresholds(){
 }
 
 let jeeSort={col:'jeeTot',dir:'desc'};
+let jeeResolutionFactor=1.0;
 function renderJEE(){
   const li=DB.snapshots.length-1,cont=getContenders();
   const rd=DB.data[ROOT][li],nacJeeE=rd.jeeE||0,nacJeeP=rd.jeeP||0,nacJeeTot=nacJeeE+nacJeeP;
   if(nacJeeTot===0){document.getElementById('jeeMeta').textContent='(sin datos jee en los snapshots)';document.getElementById('jeeSummary').innerHTML='<div class="ec" style="color:var(--muted)">los snapshots cargados no incluyen campos jee. regenerar con build_data.py actualizado.</div>';document.getElementById('jeeTbl').innerHTML='';return}
-  document.getElementById('jeeMeta').textContent=fmt(nacJeeTot)+' actas en disputa · '+(nacJeeTot/(rd.total||1)*100).toFixed(3)+'% del total nacional';
+  const factorPct=Math.round(jeeResolutionFactor*100);
+  document.getElementById('jeeMeta').textContent=fmt(nacJeeTot)+' actas en disputa · '+(nacJeeTot/(rd.total||1)*100).toFixed(3)+'% del total nacional · factor '+factorPct+'%';
   const deps=DB.nodes[ROOT].children,depJee=deps.map(function(k){const dd=DB.data[k][li]||{};return{k:k,nm:DB.nodes[k].nombre,jeeE:dd.jeeE||0,jeeP:dd.jeeP||0,tot:(dd.jeeE||0)+(dd.jeeP||0),total:dd.total||0}}).filter(function(d){return d.tot>0});
   const worstDep=depJee.slice().sort(function(a,b){return b.tot-a.tot})[0];
   const worstPct=depJee.slice().sort(function(a,b){return(b.total>0?b.tot/b.total:0)-(a.total>0?a.tot/a.total:0)})[0];
@@ -446,7 +491,7 @@ function renderJEE(){
     let tot=0;for(const c in (dd.votes||{})){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}
     const cr=cont.map(function(c){return{code:c,v:(dd.votes||{})[c]||0,pct:tot>0?((dd.votes||{})[c]||0)/tot*100:0}}).sort(function(a,b){return b.v-a.v});
     const votesPerActa=dd.cont>0?tot/dd.cont:0;
-    const votosEnJuego=Math.round(votesPerActa*d.tot);
+    const votosEnJuego=Math.round(votesPerActa*d.tot*jeeResolutionFactor);
     const g1=cr[0]?Math.round(votosEnJuego*cr[0].pct/100):0;
     const g2=cr[1]?Math.round(votosEnJuego*cr[1].pct/100):0;
     const g3=cr[2]?Math.round(votosEnJuego*cr[2].pct/100):0;
@@ -455,8 +500,9 @@ function renderJEE(){
   const sc=jeeSort.col,sd=jeeSort.dir==='desc'?-1:1;
   rows.sort(function(a,b){const av=a[sc]==null?-Infinity:a[sc],bv=b[sc]==null?-Infinity:b[sc];if(typeof av==='string')return av.localeCompare(bv)*sd;return (av-bv)*sd});
   const arr=function(c){return sc===c?(sd<0?' ↓':' ↑'):''};
+  const aria=function(c){return sc===c?(sd<0?'descending':'ascending'):'none'};
   const gainCell=function(code,pct,gain){return code?'<span style="color:var(--muted);font-size:10px">'+dname(code).split(' ').pop()+' '+pct.toFixed(1)+'%</span> <b>+'+fmtS(gain)+'</b>':'—'};
-  let h='<thead><tr><th data-c="nm">territorio'+arr('nm')+'</th><th data-c="jeeE" class="r">enviadas jee'+arr('jeeE')+'</th><th data-c="jeeP" class="r">pendientes jee'+arr('jeeP')+'</th><th data-c="jeeTot" class="r">total en disputa'+arr('jeeTot')+'</th><th data-c="pctDep" class="r">% del depto'+arr('pctDep')+'</th><th data-c="votosEnJuego" class="r">votos en juego'+arr('votosEnJuego')+'</th><th data-c="g1" class="r">ganancia 1°'+arr('g1')+'</th><th data-c="g2" class="r">ganancia 2°'+arr('g2')+'</th><th data-c="g3" class="r">ganancia 3°'+arr('g3')+'</th></tr></thead><tbody>';
+  let h='<thead><tr><th data-c="nm" aria-sort="'+aria('nm')+'" tabindex="0" role="button">territorio'+arr('nm')+'</th><th data-c="jeeE" class="r" aria-sort="'+aria('jeeE')+'" tabindex="0" role="button">enviadas jee'+arr('jeeE')+'</th><th data-c="jeeP" class="r" aria-sort="'+aria('jeeP')+'" tabindex="0" role="button">pendientes jee'+arr('jeeP')+'</th><th data-c="jeeTot" class="r" aria-sort="'+aria('jeeTot')+'" tabindex="0" role="button">total en disputa'+arr('jeeTot')+'</th><th data-c="pctDep" class="r" aria-sort="'+aria('pctDep')+'" tabindex="0" role="button">% del depto'+arr('pctDep')+'</th><th data-c="votosEnJuego" class="r" aria-sort="'+aria('votosEnJuego')+'" tabindex="0" role="button">votos en juego'+arr('votosEnJuego')+'</th><th data-c="g1" class="r" aria-sort="'+aria('g1')+'" tabindex="0" role="button">ganancia 1°'+arr('g1')+'</th><th data-c="g2" class="r" aria-sort="'+aria('g2')+'" tabindex="0" role="button">ganancia 2°'+arr('g2')+'</th><th data-c="g3" class="r" aria-sort="'+aria('g3')+'" tabindex="0" role="button">ganancia 3°'+arr('g3')+'</th></tr></thead><tbody>';
   for(const r of rows){
     h+='<tr><td>'+r.nm.toLowerCase()+'</td><td class="r">'+fmt(r.jeeE)+'</td><td class="r">'+fmt(r.jeeP)+'</td><td class="r"><b>'+fmt(r.jeeTot)+'</b></td><td class="r">'+r.pctDep.toFixed(2)+'%</td><td class="r">'+fmtS(r.votosEnJuego)+'</td><td class="r">'+gainCell(r.p1,r.p1Pct,r.g1)+'</td><td class="r">'+gainCell(r.p2,r.p2Pct,r.g2)+'</td><td class="r">'+gainCell(r.p3,r.p3Pct,r.g3)+'</td></tr>';
   }
@@ -486,7 +532,8 @@ function renderJEE(){
   }
   ah+='</tbody></table></div>';
   document.getElementById('jeeAgg').innerHTML=ah;
-  document.querySelectorAll('#jeeTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(jeeSort.col===c)jeeSort.dir=jeeSort.dir==='desc'?'asc':'desc';else{jeeSort.col=c;jeeSort.dir=(c==='nm')?'asc':'desc'}renderJEE()}});
+  const jeeSortHandler=function(th){const c=th.dataset.c;if(jeeSort.col===c)jeeSort.dir=jeeSort.dir==='desc'?'asc':'desc';else{jeeSort.col=c;jeeSort.dir=(c==='nm')?'asc':'desc'}renderJEE()};
+  document.querySelectorAll('#jeeTbl th[data-c]').forEach(function(th){th.style.cursor='pointer';th.onclick=function(){jeeSortHandler(th)};th.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();jeeSortHandler(th)}}});
 }
 
 function renderExtranjero(){
@@ -516,9 +563,10 @@ function renderTerritory(){
     rows.push({k:k,nm:nm,isE:isE,av:dd.av,pend:pend,vPend:vPend,leader:leader.code,leaderPct:leader.pct,gap:leader.v-second.v,cv:cv,projGains:projGains,bestProj:bestProj,bestProjV:projGains[bestProj]||0})}
   const s=terrSort;rows.sort(function(a,b){let va=a[s.col],vb=b[s.col];if(s.col==='nm'||s.col==='leader'||s.col==='bestProj'){va=typeof va==='string'?va:dname(va);vb=typeof vb==='string'?vb:dname(vb);return s.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va)}va=va||0;vb=vb||0;return s.dir==='asc'?va-vb:vb-va});
   const arrow=function(c){return s.col!==c?'<span class="si">⇅</span>':s.dir==='desc'?'<span class="si act">▼</span>':'<span class="si act">▲</span>'};
-  let h='<thead><tr><th data-c="nm">departamento '+arrow('nm')+'</th><th class="num" data-c="av">avance '+arrow('av')+'</th><th class="num" data-c="pend">actas pend. '+arrow('pend')+'</th><th class="num" data-c="vPend">votos pend. '+arrow('vPend')+'</th><th data-c="leader">líder '+arrow('leader')+'</th><th class="num" data-c="gap">gap int. '+arrow('gap')+'</th>';
+  const tAria=function(c){return s.col===c?(s.dir==='desc'?'descending':'ascending'):'none'};
+  let h='<thead><tr><th data-c="nm" aria-sort="'+tAria('nm')+'" tabindex="0" role="button">departamento '+arrow('nm')+'</th><th class="num" data-c="av" aria-sort="'+tAria('av')+'" tabindex="0" role="button">avance '+arrow('av')+'</th><th class="num" data-c="pend" aria-sort="'+tAria('pend')+'" tabindex="0" role="button">actas pend. '+arrow('pend')+'</th><th class="num" data-c="vPend" aria-sort="'+tAria('vPend')+'" tabindex="0" role="button">votos pend. '+arrow('vPend')+'</th><th data-c="leader" aria-sort="'+tAria('leader')+'" tabindex="0" role="button">líder '+arrow('leader')+'</th><th class="num" data-c="gap" aria-sort="'+tAria('gap')+'" tabindex="0" role="button">gap int. '+arrow('gap')+'</th>';
   for(const c of cont)h+='<th class="num" style="color:'+ccolor(c)+'">'+dname(c).split(' ').pop()+'</th>';
-  h+='<th class="num" data-c="bestProjV">beneficiado '+arrow('bestProjV')+'</th></tr></thead><tbody>';
+  h+='<th class="num" data-c="bestProjV" aria-sort="'+tAria('bestProjV')+'" tabindex="0" role="button">beneficiado '+arrow('bestProjV')+'</th></tr></thead><tbody>';
   const trTot={pend:0,vPend:0,byC:{},benef:{}};for(const c of cont){trTot.byC[c]=0;trTot.benef[c]=0}
   for(const r of rows){
     trTot.pend+=r.pend;trTot.vPend+=r.vPend;
@@ -537,7 +585,8 @@ function renderTerritory(){
   const top=benefOrder[0];
   h+='<td class="num" style="color:'+ccolor(top)+';font-weight:500">+'+fmtS(trTot.benef[top]||0)+' '+dname(top).split(' ').pop()+'</td></tr></tfoot>';
   document.getElementById('terrTbl').innerHTML=h;
-  document.querySelectorAll('#terrTbl th[data-c]').forEach(function(th){th.onclick=function(){const c=th.dataset.c;if(terrSort.col===c)terrSort.dir=terrSort.dir==='desc'?'asc':'desc';else{terrSort.col=c;terrSort.dir=(c==='nm'||c==='leader'||c==='bestProj')?'asc':'desc'}renderTerritory()}});
+  const terrSortHandler=function(th){const c=th.dataset.c;if(terrSort.col===c)terrSort.dir=terrSort.dir==='desc'?'asc':'desc';else{terrSort.col=c;terrSort.dir=(c==='nm'||c==='leader'||c==='bestProj')?'asc':'desc'}renderTerritory()};
+  document.querySelectorAll('#terrTbl th[data-c]').forEach(function(th){th.style.cursor='pointer';th.onclick=function(){terrSortHandler(th)};th.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();terrSortHandler(th)}}});
 }
 
 // STRENGTHS with 2nd/3rd + projection
@@ -585,7 +634,84 @@ async function boot(){
   const status=document.getElementById('status');
   try{const files=await discover();status.textContent='cargando '+files.length+' snapshot(s)…';const results=await fetchAll(files);DB=merge(results);status.style.display='none';document.getElementById('app').style.display='';
     renderHero();renderRanking();renderGapChart();gapPbInit();renderMarginal();renderTrajectory();renderThresholds();renderJEE();renderExtranjero();renderTerritory();renderStrengths();renderFlips();
+    wireExport();
+    wireAriaSort();
+    wireJeeFactor();
   }catch(err){status.className='status err';status.innerHTML='<b>error:</b> '+err.message}}
+
+function wireJeeFactor(){
+  const sl=document.getElementById('jeeFactor');
+  const lbl=document.getElementById('jeeFactorLbl');
+  if(!sl)return;
+  sl.addEventListener('input',function(){
+    jeeResolutionFactor=(+sl.value)/100;
+    lbl.textContent=sl.value+'%';
+    renderJEE();
+  });
+}
+
+function wireAriaSort(){
+  // apply aria-sort to sortable headers and keyboard support
+  document.querySelectorAll('.s-tbl th[data-c]').forEach(function(th){
+    th.setAttribute('tabindex','0');
+    th.setAttribute('role','columnheader');
+    th.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();th.click()}});
+  });
+  // reflect sort state (rough: clicked header inherits arrow in its text)
+  const updateAria=function(){
+    document.querySelectorAll('.s-tbl th[data-c]').forEach(function(th){
+      const txt=th.textContent;
+      if(txt.includes('↓'))th.setAttribute('aria-sort','descending');
+      else if(txt.includes('↑')||txt.includes('▲'))th.setAttribute('aria-sort','ascending');
+      else if(txt.includes('▼'))th.setAttribute('aria-sort','descending');
+      else th.setAttribute('aria-sort','none');
+    });
+  };
+  updateAria();
+  // observe changes to table bodies
+  new MutationObserver(updateAria).observe(document.getElementById('app'),{childList:true,subtree:true,characterData:true});
+}
+
+function wireExport(){
+  const btnCsv=document.getElementById('exportCsv');
+  const btnJson=document.getElementById('exportJson');
+  if(!btnCsv||!btnJson)return;
+  btnCsv.addEventListener('click',exportCsv);
+  btnJson.addEventListener('click',exportJson);
+}
+
+function exportCsv(){
+  const li=DB.snapshots.length-1,cont=getContenders(),deps=DB.nodes[ROOT].children;
+  const cols=['territorio','ambito','avance','contabilizadas','total_actas','jee_enviadas','jee_pendientes','votos_pend_est'];
+  for(const c of cont)cols.push('votos_'+dname(c).split(' ').pop().toLowerCase());
+  for(const c of cont)cols.push('pct_'+dname(c).split(' ').pop().toLowerCase());
+  const rows=[cols.join(',')];
+  for(const k of deps){
+    const dd=DB.data[k][li]||{},nm=DB.nodes[k].nombre,isE=DB.nodes[k].ambito===2?'extranjero':'peru';
+    let tot=0;for(const c in (dd.votes||{})){const cc=candByCode(c);if(cc&&!isBN(cc.agr))tot+=dd.votes[c]}
+    const pend=(dd.total||0)-(dd.cont||0),vPend=dd.cont>0?Math.round(tot*pend/dd.cont):0;
+    const row=['"'+nm+'"',isE,(dd.av||0).toFixed(3),dd.cont||0,dd.total||0,dd.jeeE||0,dd.jeeP||0,vPend];
+    for(const c of cont)row.push((dd.votes||{})[c]||0);
+    for(const c of cont){const v=(dd.votes||{})[c]||0;row.push(tot>0?(v/tot*100).toFixed(3):'0')}
+    rows.push(row.join(','));
+  }
+  downloadBlob(rows.join('\n'),'conteoonpe_territorios_s'+li+'.csv','text/csv');
+}
+
+function exportJson(){
+  const li=DB.snapshots.length-1;
+  const payload={snapshot:DB.snapshots[li],contendientes:getContenders().map(function(c){return{code:c,name:dname(c)}}),ranking_nacional:natRanking(li).slice(0,10),territorios:{}};
+  for(const k of DB.nodes[ROOT].children){const dd=DB.data[k][li]||{};payload.territorios[DB.nodes[k].nombre]={avance:dd.av,contabilizadas:dd.cont,total_actas:dd.total,jee_enviadas:dd.jeeE||0,jee_pendientes:dd.jeeP||0,votos:dd.votes||{}}}
+  downloadBlob(JSON.stringify(payload,null,2),'conteoonpe_analisis_s'+li+'.json','application/json');
+}
+
+function downloadBlob(content,filename,mime){
+  const blob=new Blob([content],{type:mime+';charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url)},1000);
+}
+
 boot();
 })();
 </script>

@@ -69,7 +69,7 @@
   .mv-empty{padding:12px 14px;color:var(--muted);font-style:italic;font-size:11px}
   .mv-summary{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
   .mv-summary .mv-stat b{color:var(--fg);font-weight:500}
-  .mv-pct-table{padding:8px 14px;border-bottom:1px solid var(--line)}
+  .mv-pct-table{padding:8px 14px;border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
   .mv-pct-table table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
   .mv-pct-table th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
   .mv-pct-table th.num{text-align:right}
@@ -78,7 +78,7 @@
   .mv-pct-table td.up{color:var(--accent);font-weight:500}
   .mv-pct-table td.down{color:var(--down);font-weight:500}
   .mv-pct-table td.flat{color:var(--muted)}
-  .mv-origin{padding:8px 14px;border-bottom:1px solid var(--line)}
+  .mv-origin{padding:8px 14px;border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
   .mv-origin-title{display:block;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
   .mv-origin table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
   .mv-origin th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
@@ -201,6 +201,9 @@
   .card-foot .cv .dlt.flat{color:var(--faint)}
 
   .tooltip{position:absolute;background:#1a1a1a;color:#fff;padding:7px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:5;opacity:0;transition:opacity .08s;line-height:1.45;font-family:'Fira Code',monospace;min-width:260px}
+  .hit:focus{outline:2px solid var(--accent);outline-offset:0}
+  svg .hit:focus{outline:none}
+  svg .hit:focus ~ .crosshair,svg .hit:focus-visible{stroke:var(--accent) !important}
   .tooltip.on{opacity:1}
   .tooltip b{color:#fff}
   .tooltip .tt-head{font-size:10px;color:#bbb;padding-bottom:4px;margin-bottom:5px;border-bottom:1px solid #333}
@@ -258,7 +261,7 @@
   .chip .x{font-size:10px;color:inherit;opacity:0.7;flex-shrink:0}
   .br-placeholder{font-size:11px;color:var(--muted);font-style:italic;padding:2px 0}
 
-  .cs-compare{margin-top:28px;border:1px solid var(--line);padding:16px 18px;background:#fdfcfa}
+  .cs-compare{margin-top:28px;border:1px solid var(--line);padding:16px 18px;background:#fdfcfa;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .cs-compare h2{margin:0 0 4px;font-size:14px;font-weight:500;letter-spacing:.02em}
   .cs-compare .cs-note{margin:0 0 12px;font-size:11px;color:var(--muted);line-height:1.5}
   .cs-meta{font-size:11px;color:var(--muted);margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap}
@@ -316,6 +319,7 @@
   .pending-summary .ps-val{font-size:15px;font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.2}
   .pending-summary .ps-sub{font-size:10px;color:var(--muted);margin-top:3px}
   .pending-grids{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px}
+  .pending-block{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .pending-block h3{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
   .pending-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
   .pending-table th{text-align:left;font-weight:500;color:var(--muted);padding:4px 6px;border-bottom:1px solid var(--line-strong);font-size:9px;text-transform:uppercase;letter-spacing:.04em;background:#fafaf7}
@@ -332,7 +336,41 @@
   .pending-table th .sort-i.act{color:var(--accent);font-weight:600}
 
   footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+  footer a{color:var(--accent);cursor:pointer}
   code{background:#f4f4f0;padding:1px 4px;font-size:11px}
+
+  /* methodology section */
+  .methodology-section{margin-top:30px;border:1px solid var(--line);background:#fff}
+  .methodology-section summary{cursor:pointer;padding:12px 14px;background:#fafaf7;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);user-select:none;border-bottom:1px solid transparent}
+  .methodology-section summary:hover,.methodology-section summary:focus{color:var(--fg);outline:none}
+  .methodology-section[open] summary{border-bottom-color:var(--line)}
+  .methodology-section summary:focus{outline:2px solid var(--accent);outline-offset:-2px}
+  .methodology-section .method-body{padding:16px 20px;font-size:12px;line-height:1.7}
+  .methodology-section .method-body p{margin:0 0 10px}
+  .methodology-section .method-body code{background:#fafaf7;border:1px solid var(--line);font-size:10px}
+  .method-export button{font-family:inherit;font-size:11px;padding:6px 12px;border:1px solid var(--line-strong);background:#fff;color:var(--fg);cursor:pointer;margin-right:8px;margin-top:6px}
+  .method-export button:hover,.method-export button:focus{border-color:var(--accent);color:var(--accent);outline:none}
+
+  /* accessibility: sortable headers */
+  th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--accent)!important}
+
+  /* responsive: wrap wide tables and adapt layouts */
+  .pending-table,.cs-table{display:block}
+  .pending-block{overflow-x:auto}
+  .pending-grids{overflow-x:auto}
+  .cs-compare{overflow-x:auto}
+  @media(max-width:900px){
+    .wrap{padding:16px 12px 60px}
+    .informe-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+    .grid{grid-template-columns:1fr !important}
+    .controls{flex-direction:column;align-items:stretch}
+    .map-wrap{overflow-x:auto}
+  }
+  @media(max-width:600px){
+    h1{font-size:16px}
+    .informe-grid{grid-template-columns:1fr 1fr}
+    .pending-summary{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
@@ -500,12 +538,33 @@
         </div>
       </div>
     </div>
+
+    <details class="methodology-section">
+      <summary>metodología y advertencias · cómo se calculan las métricas</summary>
+      <div class="method-body">
+        <p><b>porcentaje de votos válidos.</b> se calcula sobre votos emitidos a candidatos reales (excluyendo blancos y nulos). cuando la UI dice "%", se refiere a <code>votos_candidato / total_validos × 100</code>. ONPE por su parte usa "% de votos emitidos" que incluye blancos/nulos — los dos números no coinciden directamente.</p>
+        <p><b>avance de actas.</b> es <code>actas_contabilizadas / total_actas × 100</code>. no equivale a "porcentaje del electorado contado" (las mesas tienen tamaños distintos). participación ciudadana, en cambio, es <code>votantes / padrón_habilitado</code>.</p>
+        <p><b>votos por procesar (proyección híbrida).</b> para territorios con avance ≥70% se extrapola por actas: <code>votos_actuales × pendientes / contabilizadas</code>. para territorios con avance &lt;70% se usa como ancla la participación histórica 2018 sobre el padrón 2026: <code>padrón × %_participación_esperada − votos_ya_contados</code>. esto evita sobreestimar al inicio del conteo. <b>limitación actual:</b> en el estado terminal del conteo (~93%), las actas "pendientes" son actas en proceso JEE, no actas de conteo normal — la proyección es un techo, no un valor esperado.</p>
+        <p><b>actas en JEE.</b> <code>enviadasJee</code> son actas remitidas al jurado electoral en proceso de resolución. <code>pendientesJee</code> son actas marcadas con problemas pero aún no enviadas. la suma de contabilizadas + enviadas_jee + pendientes_jee siempre iguala el total de actas del territorio.</p>
+        <p><b>más crece / más cae.</b> compara el último snapshot con el snapshot de hace 3 posiciones. mide momentum reciente, no acumulado desde el inicio del conteo. si hay menos de 3 snapshots activos, compara desde el primero disponible.</p>
+        <p><b>heredero del voto castillo.</b> cuenta en cuántos departamentos donde Pedro Castillo sacó ≥30% en 1ra vuelta 2021 lidera hoy cada candidato entre los del cast. es un indicador territorial limitado: la coalición de 2021 no existe hoy como tal, y el voto se fragmentó tras el gobierno Castillo. úsese con precaución interpretativa.</p>
+        <p><b>baseline de participación.</b> viene de <code>participacion_baseline.json</code> en el repo, que registra la participación por departamento en 2018 (referéndum nacional). para el extranjero se usa un default de 40% (promedio histórico). si el archivo no está disponible, se cae a extrapolación por actas en todos los territorios.</p>
+        <p><b>castillo 2021 como línea de comparación.</b> viene de <code>castillo_2021.json</code>, con resultados oficiales ONPE. cuando se activa el toggle, se muestra como línea horizontal punteada en los gráficos de % válidos por territorio.</p>
+        <p><b>qué NO hace este dashboard.</b> no predice el resultado final con margen de error. no incorpora resoluciones JEE específicas. no estima efectos de campaña entre snapshots. no sustituye el cómputo oficial.</p>
+        <p><b>fuente.</b> scraping de endpoints públicos de ONPE (<code>/app/elecciones/resultadosPRPExt/R/T/*</code>). cada snapshot contiene ~2,400 nodos territoriales (país, 25 deptos peruanos + extranjero virtual, provincias, distritos, países y ciudades del exterior). frecuencia de actualización: manual, cuando Carlos corre el scraper.</p>
+        <p class="method-export" style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)"><b>exportar datos para análisis independiente:</b><br>
+          <button id="expTerrCsv">↓ territorios · CSV (último snapshot)</button>
+          <button id="expSeriesCsv">↓ serie temporal · CSV (cast actual)</button>
+          <button id="expFullJson">↓ snapshot completo · JSON</button>
+        </p>
+      </div>
+    </details>
   </div>
 
   <div class="tooltip" id="tip"></div>
 
   <footer>
-    onpe · top 5 por lugar · los gráficos se guardan en tu navegador (localStorage) · autodescubrimiento de snapshots vía github api
+    onpe · top 5 por lugar · los gráficos se guardan en tu navegador (localStorage) · autodescubrimiento de snapshots vía github api · <a href="#" onclick="document.querySelector('.methodology-section').open=true;document.querySelector('.methodology-section').scrollIntoView({behavior:'smooth'});return false">metodología</a>
   </footer>
 </div>
 
@@ -705,9 +764,15 @@
   async function listViaGithub({owner,repo,path}){
     const api = `https://api.github.com/repos/${owner}/${repo}/contents${path}`;
     const r = await fetch(api, {headers:{'Accept':'application/vnd.github+json'}});
-    if(!r.ok) throw new Error(`github api ${r.status}`);
+    if(r.status === 403 || r.status === 429){
+      // rate limit: dar mensaje específico y accionable
+      const reset = r.headers.get('X-RateLimit-Reset');
+      const resetTxt = reset ? new Date(+reset*1000).toLocaleTimeString('es-PE') : 'pronto';
+      throw new Error(`github api rate-limited (60 req/h sin token). se restablece a ${resetTxt}. solución inmediata: crear manifest.json en la carpeta de snapshots con la lista de archivos JSON`);
+    }
+    if(!r.ok) throw new Error(`github api ${r.status}: ${r.statusText}`);
     const items = await r.json();
-    if(!Array.isArray(items)) throw new Error('respuesta inesperada');
+    if(!Array.isArray(items)) throw new Error('respuesta inesperada de github api');
     return items.filter(it=>it.type==='file'&&FILE_RE.test(it.name)).map(it=>({name:it.name,url:it.download_url}));
   }
   async function discover(){
@@ -1223,14 +1288,17 @@
       const cx = +hit.dataset.cx;
       const svg = hit.ownerSVGElement;
       const crosshair = svg.querySelector('.crosshair');
-      hit.addEventListener('mouseenter', () => {
+      // hacerlo accesible por teclado
+      hit.setAttribute('tabindex', '0');
+      hit.setAttribute('role', 'button');
+      hit.setAttribute('aria-label', `snapshot ${sn} de ${DB.nodes[place]?.nombre || 'PERÚ'}`);
+      const showTip = (evt) => {
         crosshair.setAttribute('x1', cx);
         crosshair.setAttribute('x2', cx);
         crosshair.setAttribute('opacity', '0.5');
         const snap = DB.snapshots[sn];
         const placeName = DB.nodes[place].nombre || 'PERÚ';
         const t = totalValidVotesAt(place, sn);
-        // recolectar filas con valor primario según yMode, ordenar desc
         const rowData = state.cast.map((code, idx) => {
           const c = candByCode(code);
           if(!c) return null;
@@ -1255,21 +1323,47 @@
         }).join('');
         tip.innerHTML = `<div class="tt-head"><b>${placeName}</b> · s${sn} · ${snap.label} · ${pct(snap.avance)}</div>${rows}`;
         tip.classList.add('on');
-      });
+        // posicionar: si viene de focus (sin coords), posicionar cerca del elemento
+        if(evt && evt.pageX != null){
+          const tw = tip.offsetWidth || 300, th = tip.offsetHeight || 140;
+          let x = evt.pageX + 14, y = evt.pageY + 14;
+          if(x + tw > window.scrollX + window.innerWidth - 8) x = evt.pageX - tw - 14;
+          if(y + th > window.scrollY + window.innerHeight - 8) y = evt.pageY - th - 14;
+          tip.style.left = x + 'px';
+          tip.style.top = y + 'px';
+        } else {
+          const rect = hit.getBoundingClientRect();
+          tip.style.left = (rect.left + window.scrollX + 8) + 'px';
+          tip.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        }
+      };
+      const hideTip = () => {
+        crosshair.setAttribute('opacity', '0');
+        tip.classList.remove('on');
+      };
+      hit.addEventListener('mouseenter', showTip);
+      hit.addEventListener('focus', showTip);
       hit.addEventListener('mousemove', (e) => {
-        // posicionar tooltip cerca del cursor, cuidando bordes
-        const tw = tip.offsetWidth || 300;
-        const th = tip.offsetHeight || 140;
-        let x = e.pageX + 14;
-        let y = e.pageY + 14;
+        const tw = tip.offsetWidth || 300, th = tip.offsetHeight || 140;
+        let x = e.pageX + 14, y = e.pageY + 14;
         if(x + tw > window.scrollX + window.innerWidth - 8) x = e.pageX - tw - 14;
         if(y + th > window.scrollY + window.innerHeight - 8) y = e.pageY - th - 14;
         tip.style.left = x + 'px';
         tip.style.top  = y + 'px';
       });
-      hit.addEventListener('mouseleave', () => {
-        crosshair.setAttribute('opacity', '0');
-        tip.classList.remove('on');
+      hit.addEventListener('mouseleave', hideTip);
+      hit.addEventListener('blur', hideTip);
+      hit.addEventListener('keydown', (e) => {
+        // flechas: navegar entre snapshots del mismo gráfico
+        if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+          e.preventDefault();
+          const siblings = Array.from(svg.querySelectorAll('.hit'));
+          const idx = siblings.indexOf(hit);
+          const nextIdx = e.key === 'ArrowRight' ? Math.min(idx+1, siblings.length-1) : Math.max(idx-1, 0);
+          siblings[nextIdx].focus();
+        } else if(e.key === 'Escape'){
+          hit.blur();
+        }
       });
     });
   }
@@ -2058,39 +2152,36 @@
     const paisesExt = allNodes.filter(([k,n]) => n.nivel === 'provincia' && isExt(k));
     const ciudadesExt = allNodes.filter(([k,n]) => n.nivel === 'distrito' && isExt(k));
 
-    // helper: stats de un nodo (incluye proyección de votos pendientes)
+    // cache: las stats se reutilizan muchas veces (aggregate, filtrados, tabla)
+    const statsCache = {};
     function stats(k){
+      if(statsCache[k] !== undefined) return statsCache[k];
       const dd = DB.data[k]?.[lastI] || {};
       const cont = dd.cont || 0;
       const total = dd.total || 0;
       const pend = total - cont;
       const av = dd.av || 0;
-      // votos válidos + blanco/nulo actuales
       const votes = dd.votes || {};
       let vAct = 0;
       for(const c in votes) vAct += votes[c];
-      // === PROYECCIÓN HÍBRIDA DE VOTOS PENDIENTES ===
-      // Si avance >= 70% → extrapolación por actas (más confiable, ya hay evidencia)
-      // Si avance < 70% → padrón × % esperado 2018 (ancla externa)
-      // Para sub-niveles sin padrón → siempre extrapolación por actas
+      // PROYECCIÓN HÍBRIDA
       let vPend = null;
       const padron = padronOf(k);
       const expPct = expectedParticipationPct(k);
       const HIGH_AVANCE_THRESHOLD = 70;
       if(av >= HIGH_AVANCE_THRESHOLD && cont > 0 && pend > 0){
-        // extrapolación por actas: si avance es alto, esto es más fiable
         vPend = Math.round(vAct * pend / cont);
       } else if(padron != null && expPct != null){
-        // baseline 2018 cuando avance es bajo
         const esperados = padron * (expPct/100);
         vPend = Math.max(0, esperados - vAct);
       } else if(cont > 0 && pend > 0){
-        // fallback para sub-niveles sin padrón
         vPend = Math.round(vAct * pend / cont);
       } else {
         vPend = 0;
       }
-      return {cont, total, pend, av, vAct, vPend: Math.round(vPend)};
+      const result = {cont, total, pend, av, vAct, vPend: Math.round(vPend)};
+      statsCache[k] = result;
+      return result;
     }
 
     // === RESUMEN GLOBAL ===
@@ -3146,11 +3237,130 @@
 
       // inicializar controles de playback
       pbWirePlayback();
+
+      // exportadores de datos
+      wireExports();
+      // aria-sort accesible en headers sortables
+      wireAriaSort();
     }catch(err){
       status.className='status err';
       status.innerHTML = `<b>error:</b> ${err.message}<br><br>
       <b>opciones:</b> subir archivos <code>onpe_data_*.json</code> en la carpeta del repo, o crear <code>manifest.json</code> con <code>["archivo1.json", ...]</code>`;
     }
+  }
+
+  // ---------- export ----------
+  function downloadBlob(content, filename, mime){
+    const blob = new Blob([content], {type: mime+';charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportTerritoriosCsv(){
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+    const deps = DB.nodes[ROOT].children;
+    const cols = ['territorio','ambito','avance_pct','participacion_pct','contabilizadas','total_actas','jee_enviadas','jee_pendientes','votos_pend_est'];
+    // agregar columnas por candidato del cast
+    for(const code of state.cast){
+      const c = candByCode(code); if(!c || isBN(c.agr)) continue;
+      const nm = displayName(code).split(' ').slice(-2).join('_').toLowerCase().replace(/[^a-z0-9_]/g,'');
+      cols.push('votos_'+nm, 'pct_'+nm);
+    }
+    const rows = [cols.join(',')];
+    for(const k of deps){
+      const dd = DB.data[k]?.[lastI] || {};
+      const nm = DB.nodes[k].nombre;
+      const amb = DB.nodes[k].ambito === 2 ? 'extranjero' : 'peru';
+      let tot = 0;
+      for(const c in (dd.votes||{})){ const cc = candByCode(c); if(cc && !isBN(cc.agr)) tot += dd.votes[c]; }
+      const pend = (dd.total||0) - (dd.cont||0);
+      const vPend = dd.cont > 0 && pend > 0 ? Math.round(tot * pend / dd.cont) : 0;
+      const row = ['"'+nm.replace(/"/g,'""')+'"', amb, (dd.av||0).toFixed(3), (dd.part||0).toFixed(3), dd.cont||0, dd.total||0, dd.jeeE||0, dd.jeeP||0, vPend];
+      for(const code of state.cast){
+        const c = candByCode(code); if(!c || isBN(c.agr)) continue;
+        const v = (dd.votes||{})[code] || 0;
+        row.push(v, tot > 0 ? (v/tot*100).toFixed(3) : '0');
+      }
+      rows.push(row.join(','));
+    }
+    downloadBlob(rows.join('\n'), `conteoonpe_territorios_s${lastI}.csv`, 'text/csv');
+  }
+
+  function exportSerieTemporalCsv(){
+    const aIdx = activeIndices();
+    const cols = ['snapshot_idx','timestamp','label','avance_nacional_pct'];
+    for(const code of state.cast){
+      const c = candByCode(code); if(!c || isBN(c.agr)) continue;
+      const nm = displayName(code).split(' ').slice(-2).join('_').toLowerCase().replace(/[^a-z0-9_]/g,'');
+      cols.push('votos_'+nm, 'pct_'+nm);
+    }
+    const rows = [cols.join(',')];
+    for(const i of aIdx){
+      const s = DB.snapshots[i];
+      const totV = totalValidVotesAt(ROOT, i);
+      const row = [i, '"'+s.ts+'"', '"'+s.label+'"', (s.avance||0).toFixed(3)];
+      for(const code of state.cast){
+        const c = candByCode(code); if(!c || isBN(c.agr)) continue;
+        const v = votesAt(ROOT, code, i) || 0;
+        row.push(v, totV > 0 ? (v/totV*100).toFixed(3) : '0');
+      }
+      rows.push(row.join(','));
+    }
+    downloadBlob(rows.join('\n'), 'conteoonpe_serie_temporal.csv', 'text/csv');
+  }
+
+  function exportFullJson(){
+    const aIdx = activeIndices();
+    const lastI = aIdx.length ? aIdx[aIdx.length-1] : last();
+    const payload = {
+      generated_at: new Date().toISOString(),
+      snapshot_current: DB.snapshots[lastI],
+      snapshots_all: DB.snapshots,
+      candidatos_master: DB.candidatos_master,
+      cast: state.cast,
+      nodes: DB.nodes,
+      data: DB.data
+    };
+    downloadBlob(JSON.stringify(payload), `conteoonpe_full_s${lastI}.json`, 'application/json');
+  }
+
+  function wireExports(){
+    const t = document.getElementById('expTerrCsv'); if(t) t.onclick = exportTerritoriosCsv;
+    const s = document.getElementById('expSeriesCsv'); if(s) s.onclick = exportSerieTemporalCsv;
+    const f = document.getElementById('expFullJson'); if(f) f.onclick = exportFullJson;
+  }
+
+  // ---------- aria-sort accesible ----------
+  function wireAriaSort(){
+    // pending-table.sortable + cs-table.sortable tienen cursor:pointer ya
+    // los volvemos keyboard-navigable y reflejan aria-sort automáticamente
+    const apply = () => {
+      document.querySelectorAll('th.sortable, th[data-c]').forEach(th => {
+        if(!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '0');
+        if(!th.hasAttribute('role')) th.setAttribute('role', 'columnheader');
+        if(!th.dataset.kbWired){
+          th.addEventListener('keydown', e => {
+            if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); th.click(); }
+          });
+          th.dataset.kbWired = '1';
+        }
+        // reflejar orden visible: los dashboards marcan columna activa con .act o flechas ▼▲ ↓↑
+        const txt = th.textContent;
+        const hasAct = th.classList.contains('active') || th.querySelector('.act,.si.act,.sort-i.act');
+        if(hasAct || txt.includes('↓') || txt.includes('▼')){
+          th.setAttribute('aria-sort', txt.includes('↑') || txt.includes('▲') ? 'ascending' : 'descending');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    };
+    apply();
+    // observar cambios en tablas para resincronizar
+    new MutationObserver(apply).observe(document.getElementById('app'), {childList:true, subtree:true, characterData:true});
   }
   boot();
 })();
